@@ -31,7 +31,7 @@ public class Trapping {
         int rejected = 0;
         int lowE = 0;
 
-        ArrayList<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 100000);
+        ArrayList<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 500000);
 
         for (Iterator<ElectronTrappingSimulator.SimulaionResult> it = results.iterator(); it.hasNext();) {
             ElectronTrappingSimulator.SimulaionResult res = it.next();
@@ -63,7 +63,6 @@ public class Trapping {
 
         System.out.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
         System.out.printf("The transport mirroring angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
-        System.out.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
         System.out.printf("The starting energy is %g.%n", E);
         System.out.printf("The lower energy boundary is %g.%n%n", simulator.Elow);
 
@@ -73,11 +72,11 @@ public class Trapping {
         System.out.printf("The total number of LOWENERGY events is %d.%n%n", lowE);
 
         if (out != null) {
+            out.println();
             out.printf("The total number of events is %d.%n%n", results.size());
 
             out.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
             out.printf("The transport mirroring angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
-            out.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
             out.printf("The starting energy is %g.%n", E);
             out.printf("The lower energy boundary is %g.%n%n", simulator.Elow);
 

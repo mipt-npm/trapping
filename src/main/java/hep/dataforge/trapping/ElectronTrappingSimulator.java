@@ -75,10 +75,6 @@ public class ElectronTrappingSimulator {
 
 
             //Вычисляем сечения и нормируем их на полное сечение
-//            double sigmaTotal = Scatter.sigmaTotal(E);
-//            double sigmaIon = Scatter.sigmaion(E) / sigmaTotal;
-//            double sigmaEl = Scatter.sigmael(E) / sigmaTotal;
-//            double sigmaexc = Scatter.sigmaexc(E) / sigmaTotal;
             double sigmaIon = Scatter.sigmaion(E);
             double sigmaEl = Scatter.sigmael(E);
             double sigmaexc = Scatter.sigmaexc(E);
@@ -103,17 +99,6 @@ public class ElectronTrappingSimulator {
                 // elastic
                 Scatter.randomel(E, dE, dTheta);
             }
-
-//            if (alpha < sigmaEl) {
-//                Scatter.randomel(E, dE, dTheta);
-//            } else if (alpha < sigmaexc) {
-//                Scatter.randomexc(E, dE, dTheta);
-//            } else {
-//                Scatter.randomion(E, dE, dTheta);
-//            }
-
-
-
 
             //Обновляем значени угла и энергии независимо ни от чего
             E -= dE.getValue();
@@ -163,7 +148,7 @@ public class ElectronTrappingSimulator {
         SphericalCoordinates init = new SphericalCoordinates(1, 0, theta+dTheta);
         // Задаем вращение относительно оси, перпендикулярной исходному вектору 
         SphericalCoordinates rotate = new SphericalCoordinates(1, 0, theta);
-        // поворачиваем исходный вектора на dTheta
+        // поворачиваем исходный вектор на dTheta
         Rotation rot = new Rotation(rotate.getCartesian(), phi);
 
         Vector3D result = rot.applyTo(init.getCartesian());
@@ -214,20 +199,6 @@ public class ElectronTrappingSimulator {
         return Math.acos(x);
     }
 
-//    /**
-//     * Генерируем случайный угол таким образом, чтобы электрон заведомо был
-//     * траппинговый
-//     *
-//     * @return
-//     */
-//    public double getRandomTrappedTheta() {
-//        double res = 0;
-//        while (res < this.thetaTransport) {
-//            res = this.getRandomTheta();
-//
-//        }
-//        return res;
-//    }
     public class SimulaionResult {
 
         public SimulaionResult(EndState state, double E, double theta, int collisionNumber) {
