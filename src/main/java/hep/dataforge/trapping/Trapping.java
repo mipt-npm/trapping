@@ -62,7 +62,7 @@ public class Trapping {
         System.out.printf("%nThe total number of events is %d.%n%n", results.size());
 
         System.out.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
-        System.out.printf("The transport mirroring angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
+        System.out.printf("The transport reflection angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
         System.out.printf("The starting energy is %g.%n", E);
         System.out.printf("The lower energy boundary is %g.%n%n", simulator.Elow);
 
@@ -76,7 +76,7 @@ public class Trapping {
             out.printf("The total number of events is %d.%n%n", results.size());
 
             out.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
-            out.printf("The transport mirroring angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
+            out.printf("The transport reflection angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
             out.printf("The starting energy is %g.%n", E);
             out.printf("The lower energy boundary is %g.%n%n", simulator.Elow);
 
