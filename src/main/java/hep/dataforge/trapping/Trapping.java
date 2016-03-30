@@ -14,9 +14,11 @@ public class Trapping {
 
     public static void main(String[] args) throws FileNotFoundException {
         PrintWriter out = null;
-        if ((args != null) && (args[0] != null)) {
+        if ((args.length > 0) && (args[0] != null)) {
             File file = new File(args[0]);
             out = new PrintWriter(file);
+        } else {
+            
         }
 
         double E = 18000d;
@@ -31,7 +33,7 @@ public class Trapping {
         int rejected = 0;
         int lowE = 0;
 
-        ArrayList<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 500000);
+        ArrayList<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 50000);
 
         for (Iterator<ElectronTrappingSimulator.SimulaionResult> it = results.iterator(); it.hasNext();) {
             ElectronTrappingSimulator.SimulaionResult res = it.next();
@@ -86,7 +88,6 @@ public class Trapping {
             out.printf("The total number of LOWENERGY events is %d.%n%n", lowE);
             out.close();
         }
-        
 
     }
 }
