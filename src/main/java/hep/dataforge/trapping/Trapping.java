@@ -2,9 +2,8 @@ package hep.dataforge.trapping;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.io.PrintStream;
+import java.util.List;
 
 /**
  * Hello world!
@@ -13,10 +12,10 @@ import java.util.Iterator;
 public class Trapping {
 
     public static void main(String[] args) throws FileNotFoundException {
-        PrintWriter out = null;
+        PrintStream out = null;
         if ((args.length > 0) && (args[0] != null)) {
             File file = new File(args[0]);
-            out = new PrintWriter(file);
+            out = new PrintStream(file);
         } else {
             
         }
@@ -33,18 +32,15 @@ public class Trapping {
         int rejected = 0;
         int lowE = 0;
 
-        ArrayList<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 50000);
+        List<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 500000);
 
-        for (Iterator<ElectronTrappingSimulator.SimulaionResult> it = results.iterator(); it.hasNext();) {
-            ElectronTrappingSimulator.SimulaionResult res = it.next();
-
+        for (ElectronTrappingSimulator.SimulaionResult res : results) {
             if (out != null) {
-                out.printf("%g\t%g\t%d\t%s%n", res.E, res.theta * 180 / Math.PI, res.collisionNumber, res.state.toString());
+                ElectronTrappingSimulator.printOne(System.out, res);
             }
             switch (res.state) {
-
                 case ACCEPTED:
-                    System.out.printf("%g\t%g\t%d\t%s%n", res.E, res.theta * 180 / Math.PI, res.collisionNumber, res.state.toString());
+//                    ElectronTrappingSimulator.printOne(System.out, res);
                     accepted++;
                     break;
                 case LOWENERGY:

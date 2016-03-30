@@ -4,8 +4,9 @@
  */
 package hep.dataforge.trapping;
 
-import org.apache.commons.math3.random.JDKRandomGenerator;
+import org.apache.commons.math3.random.MersenneTwister;
 import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.random.SynchronizedRandomGenerator;
 
 /**
  *
@@ -15,7 +16,7 @@ public class TrappingRandomGenerator {
     RandomGenerator generator;
 
     public TrappingRandomGenerator() {
-        this.generator = new JDKRandomGenerator();
+        this.generator = new SynchronizedRandomGenerator(new MersenneTwister());
     }
 
     public TrappingRandomGenerator(RandomGenerator generator) {

@@ -4,7 +4,10 @@
  */
 package hep.dataforge.trapping;
 
-import java.util.ArrayList;
+import java.io.PrintStream;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
 import org.apache.commons.math3.geometry.euclidean.threed.SphericalCoordinates;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
@@ -52,14 +55,13 @@ public class ElectronTrappingSimulator {
 
         if (initTheta < this.thetaPinch) {
             if (generator.heads()) {
-                return new SimulaionResult(EndState.PASS, initEnergy, initTheta, 0);
+                return new SimulaionResult(EndState.PASS, initEnergy, initTheta, initTheta, 0);
             } else {
-                return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, 0);
+                return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
             }
-        } else if(initTheta<this.thetaTransport){
-                return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, 0);            
+        } else if (initTheta < this.thetaTransport) {
+            return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
         }
-
 
         double E = initEnergy;
         double theta = initTheta;
@@ -72,7 +74,6 @@ public class ElectronTrappingSimulator {
             colNum++;
             DoubleValue dE = new DoubleValue(0);
             DoubleValue dTheta = new DoubleValue(0);
-
 
             //Вычисляем сечения и нормируем их на полное сечение
             double sigmaIon = Scatter.sigmaion(E);
@@ -130,7 +131,11 @@ public class ElectronTrappingSimulator {
                 state = EndState.LOWENERGY;
             }
         }
-        return new SimulaionResult(state, E, theta, colNum);
+        SimulaionResult res = new SimulaionResult(state, E, theta, initTheta, colNum);
+        if (state == EndState.ACCEPTED) {
+            printOne(System.out, res);
+        }
+        return res;
 
     }
 
@@ -145,7 +150,7 @@ public class ElectronTrappingSimulator {
         //Генерируем случайный фи
         double phi = generator.next() * 2 * Math.PI;
         //Создаем начальный вектор в сферических координатах
-        SphericalCoordinates init = new SphericalCoordinates(1, 0, theta+dTheta);
+        SphericalCoordinates init = new SphericalCoordinates(1, 0, theta + dTheta);
         // Задаем вращение относительно оси, перпендикулярной исходному вектору 
         SphericalCoordinates rotate = new SphericalCoordinates(1, 0, theta);
         // поворачиваем исходный вектор на dTheta
@@ -153,9 +158,8 @@ public class ElectronTrappingSimulator {
 
         Vector3D result = rot.applyTo(init.getCartesian());
 
-  //      assert Vector3D.angle(result, rotate.getCartesian()) == dTheta;
+        //      assert Vector3D.angle(result, rotate.getCartesian()) == dTheta;
         return Math.acos(result.getZ());
-
     }
 
     /**
@@ -165,17 +169,16 @@ public class ElectronTrappingSimulator {
      * @param num
      * @return
      */
-    public ArrayList<SimulaionResult> simulateAll(double E, int num) {
-        ArrayList<SimulaionResult> res = new ArrayList();
-        double theta;
-
+    public List<SimulaionResult> simulateAll(double E, int num) {
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", E, num);
-        for (int i = 0; i < num; i++) {
-//            System.out.printf("Running electron number %d", i);
-            theta = this.getRandomTheta();
-            res.add(this.simulateOne(E, theta));
-        }
-        return res;
+
+        return Stream.generate(() -> getRandomTheta()).limit(num).parallel()
+                .map(theta -> simulateOne(E, theta))
+                .collect(Collectors.toList());
+    }
+
+    public static void printOne(PrintStream out, SimulaionResult res) {
+        out.printf("%g\t%g\t%g\t%d\t%s%n", res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.state.toString());
     }
 
     private double normalizeTheta(double theta) {
@@ -201,14 +204,16 @@ public class ElectronTrappingSimulator {
 
     public class SimulaionResult {
 
-        public SimulaionResult(EndState state, double E, double theta, int collisionNumber) {
+        public SimulaionResult(EndState state, double E, double theta, double initTheta, int collisionNumber) {
             this.state = state;
             this.E = E;
             this.theta = theta;
+            this.initTheta = initTheta;
             this.collisionNumber = collisionNumber;
         }
         public EndState state;
         public double E;
+        public double initTheta;
         public double theta;
         public int collisionNumber;
     }
