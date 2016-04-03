@@ -1,4 +1,4 @@
-package hep.dataforge.trapping;
+package inr.numass.trapping;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -32,7 +32,11 @@ public class Trapping {
         int rejected = 0;
         int lowE = 0;
 
-        List<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 500000);
+        simulator.scatter.counter.resetAll();
+        List<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 10000);
+        simulator.scatter.counter.print(System.out);
+        
+        System.out.printf("%nSimulation complete.%n%n");
 
         for (ElectronTrappingSimulator.SimulaionResult res : results) {
             if (out != null) {

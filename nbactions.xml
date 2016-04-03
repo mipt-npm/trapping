@@ -7,7 +7,7 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-ea -classpath %classpath hep.dataforge.trapping.Trapping D:\\PlayGround\\Trapping.res</exec.args>
+                <exec.args>-ea -classpath %classpath inr.numass.trapping.Trapping</exec.args>
                 <exec.executable>java</exec.executable>
             </properties>
         </action>
@@ -18,7 +18,7 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -ea -classpath %classpath ${packageClassName} D:\\PlayGround\\Trapping.res</exec.args>
+                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -ea -classpath %classpath inr.numass.trapping.Trapping</exec.args>
                 <exec.executable>java</exec.executable>
                 <jpda.listen>true</jpda.listen>
             </properties>
@@ -27,11 +27,11 @@
             <actionName>profile</actionName>
             <goals>
                 <goal>process-classes</goal>
-                <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
+                <goal>org.codehaus.mojo:exec-maven-plugin:1.4.0:exec</goal>
             </goals>
             <properties>
-                <exec.args>${profiler.args} -ea -classpath %classpath ${packageClassName} D:\\PlayGround\\Trapping.res</exec.args>
-                <exec.executable>${profiler.java}</exec.executable>
+                <exec.args>-ea -classpath %classpath inr.numass.trapping.Trapping</exec.args>
+                <exec.executable>java</exec.executable>
             </properties>
         </action>
     </actions>

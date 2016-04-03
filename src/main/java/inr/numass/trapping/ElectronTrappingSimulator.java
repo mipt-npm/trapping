@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package hep.dataforge.trapping;
+package inr.numass.trapping;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -11,6 +11,11 @@ import java.util.stream.Stream;
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
 import org.apache.commons.math3.geometry.euclidean.threed.SphericalCoordinates;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
+import org.apache.commons.math3.random.JDKRandomGenerator;
+import org.apache.commons.math3.random.MersenneTwister;
+import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.random.SynchronizedRandomGenerator;
+import org.apache.commons.math3.util.Pair;
 import org.apache.commons.math3.util.Precision;
 
 /**
@@ -19,12 +24,16 @@ import org.apache.commons.math3.util.Precision;
  */
 public class ElectronTrappingSimulator {
 
-    private TrappingRandomGenerator generator = new TrappingRandomGenerator();
+    private RandomGenerator generator;
+    Scatter scatter;
     double Elow = 14000d;
     double thetaTransport = 24.107064 / 180 * Math.PI;
     double thetaPinch = 19.481097 / 180 * Math.PI;
+    
 
     public ElectronTrappingSimulator() {
+        generator = new SynchronizedRandomGenerator(new MersenneTwister());
+        scatter = new Scatter(generator);
     }
 
     public static enum EndState {
@@ -54,7 +63,7 @@ public class ElectronTrappingSimulator {
         assert initTheta > 0 && initTheta < Math.PI / 2;
 
         if (initTheta < this.thetaPinch) {
-            if (generator.heads()) {
+            if (generator.nextBoolean()) {
                 return new SimulaionResult(EndState.PASS, initEnergy, initTheta, initTheta, 0);
             } else {
                 return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
@@ -72,13 +81,12 @@ public class ElectronTrappingSimulator {
 
         while (!stopflag) {
             colNum++;
-            DoubleValue dE = new DoubleValue(0);
-            DoubleValue dTheta = new DoubleValue(0);
+            Pair<Double,Double> delta;
 
             //Вычисляем сечения и нормируем их на полное сечение
-            double sigmaIon = Scatter.sigmaion(E);
-            double sigmaEl = Scatter.sigmael(E);
-            double sigmaexc = Scatter.sigmaexc(E);
+            double sigmaIon = scatter.sigmaion(E);
+            double sigmaEl = scatter.sigmael(E);
+            double sigmaexc = scatter.sigmaexc(E);
             double sigmaTotal = sigmaEl + sigmaIon + sigmaexc;
             sigmaIon /= sigmaTotal;
             sigmaEl /= sigmaTotal;
@@ -86,31 +94,31 @@ public class ElectronTrappingSimulator {
             //проверяем нормировку
             assert Precision.equals(sigmaEl + sigmaexc + sigmaIon, 1, 1e-2);
 
-            double alpha = generator.next();
+            double alpha = generator.nextDouble();
 
             if (alpha > sigmaEl) {
                 if (alpha > sigmaEl + sigmaexc) {
                     //ionization case
-                    Scatter.randomion(E, dE, dTheta);
+                    delta = scatter.randomion(E);
                 } else {
                     //excitation case
-                    Scatter.randomexc(E, dE, dTheta);
+                    delta = scatter.randomexc(E);
                 }
             } else {
                 // elastic
-                Scatter.randomel(E, dE, dTheta);
+                delta = scatter.randomel(E);
             }
 
             //Обновляем значени угла и энергии независимо ни от чего
-            E -= dE.getValue();
+            E -= delta.getFirst();
             //Изменение угла
-            theta = addTheta(theta, dTheta.getValue() / 180 * Math.PI);
+            theta = addTheta(theta, delta.getSecond() / 180 * Math.PI);
             //следим чтобы угол был от 0 до 90, если он перекинется через границу, считаем что электрон остается в потоке
             theta = normalizeTheta(theta);
 
             if (theta < thetaPinch) {
                 stopflag = true;
-                if (generator.heads()) {
+                if (generator.nextBoolean()) {
                     //Учитываем тот факт, что электрон мог вылететь в правильный угол, но назад
                     state = EndState.ACCEPTED;
                 } else {
@@ -148,7 +156,7 @@ public class ElectronTrappingSimulator {
      */
     double addTheta(double theta, double dTheta) {
         //Генерируем случайный фи
-        double phi = generator.next() * 2 * Math.PI;
+        double phi = generator.nextDouble()* 2 * Math.PI;
         //Создаем начальный вектор в сферических координатах
         SphericalCoordinates init = new SphericalCoordinates(1, 0, theta + dTheta);
         // Задаем вращение относительно оси, перпендикулярной исходному вектору 
@@ -171,7 +179,6 @@ public class ElectronTrappingSimulator {
      */
     public List<SimulaionResult> simulateAll(double E, int num) {
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", E, num);
-
         return Stream.generate(() -> getRandomTheta()).limit(num).parallel()
                 .map(theta -> simulateOne(E, theta))
                 .collect(Collectors.toList());
@@ -198,7 +205,7 @@ public class ElectronTrappingSimulator {
     }
 
     public double getRandomTheta() {
-        double x = generator.next();
+        double x = generator.nextDouble();
         return Math.acos(x);
     }
 
