@@ -17,15 +17,13 @@ public class Trapping {
             File file = new File(args[0]);
             out = new PrintStream(file);
         } else {
-            
+
         }
 
         double E = 18000d;
         System.out.println();
-//        System.setProperty("jna.library.path", "d:\\projects\\Trapping\\target\\classes\\win32-amd64\\libScatter.dll");
         ElectronTrappingSimulator simulator = new ElectronTrappingSimulator();
         simulator.setFields(0.6, 3.6, 7.2);
-//        ElectronTrappingSimulator.SimulaionResult result;
 
         int accepted = 0;
         int pass = 0;
@@ -33,18 +31,18 @@ public class Trapping {
         int lowE = 0;
 
         simulator.scatter.counter.resetAll();
-        List<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, 10000);
+        List<ElectronTrappingSimulator.SimulaionResult> results = simulator.simulateAll(E, (int) 1e6);
         simulator.scatter.counter.print(System.out);
-        
+
         System.out.printf("%nSimulation complete.%n%n");
 
         for (ElectronTrappingSimulator.SimulaionResult res : results) {
-            if (out != null) {
-                ElectronTrappingSimulator.printOne(System.out, res);
-            }
             switch (res.state) {
                 case ACCEPTED:
 //                    ElectronTrappingSimulator.printOne(System.out, res);
+                    if (out != null) {
+                        ElectronTrappingSimulator.printOne(out, res);
+                    }
                     accepted++;
                     break;
                 case LOWENERGY:

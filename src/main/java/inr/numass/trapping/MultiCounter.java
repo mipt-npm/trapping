@@ -16,7 +16,6 @@
 package inr.numass.trapping;
 
 import java.io.PrintStream;
-import java.io.PrintWriter;
 import static java.lang.Integer.valueOf;
 import java.util.HashMap;
 import java.util.Map;

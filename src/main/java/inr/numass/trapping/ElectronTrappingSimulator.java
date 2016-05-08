@@ -11,7 +11,6 @@ import java.util.stream.Stream;
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
 import org.apache.commons.math3.geometry.euclidean.threed.SphericalCoordinates;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
-import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.MersenneTwister;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.SynchronizedRandomGenerator;
@@ -29,7 +28,7 @@ public class ElectronTrappingSimulator {
     double Elow = 14000d;
     double thetaTransport = 24.107064 / 180 * Math.PI;
     double thetaPinch = 19.481097 / 180 * Math.PI;
-    
+
 
     public ElectronTrappingSimulator() {
         generator = new SynchronizedRandomGenerator(new MersenneTwister());
@@ -159,7 +158,7 @@ public class ElectronTrappingSimulator {
         double phi = generator.nextDouble()* 2 * Math.PI;
         //Создаем начальный вектор в сферических координатах
         SphericalCoordinates init = new SphericalCoordinates(1, 0, theta + dTheta);
-        // Задаем вращение относительно оси, перпендикулярной исходному вектору 
+        // Задаем вращение относительно оси, перпендикулярной исходному вектору
         SphericalCoordinates rotate = new SphericalCoordinates(1, 0, theta);
         // поворачиваем исходный вектор на dTheta
         Rotation rot = new Rotation(rotate.getCartesian(), phi);
