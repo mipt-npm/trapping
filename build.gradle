@@ -1,0 +1,36 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'application'
+
+
+mainClassName = "inr.numass.trapping.Trapping"
+
+group = 'inr.numass'
+version = 'dev'
+
+description = """trapping"""
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+
+     maven { url "http://repo.maven.apache.org/maven2" }
+}
+dependencies {
+    compile group: 'org.apache.commons', name: 'commons-math3', version:'3.6.1'
+    testCompile group: 'junit', name: 'junit', version:'4.12'
+}
+
+task runTrap(type: JavaExec) {
+  classpath = sourceSets.main.runtimeClasspath
+
+  main = mainClassName
+
+  // arguments to pass to the application
+  args 'D:\\Work\\Numass\\trapping\\trap.out'
+}
