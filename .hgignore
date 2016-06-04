@@ -3,3 +3,7 @@
 \.chg\..*$
 \.rej$
 \.conflict\~$
+.gradle
+build/
+.idea/*
+!gradle-wrapper.jar

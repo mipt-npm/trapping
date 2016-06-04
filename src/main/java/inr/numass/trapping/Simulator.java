@@ -5,9 +5,9 @@
 package inr.numass.trapping;
 
 import java.io.PrintStream;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
+
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
 import org.apache.commons.math3.geometry.euclidean.threed.SphericalCoordinates;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
@@ -18,21 +18,26 @@ import org.apache.commons.math3.util.Pair;
 import org.apache.commons.math3.util.Precision;
 
 /**
- *
  * @author Darksnake
  */
-public class ElectronTrappingSimulator {
+public class Simulator {
 
     private RandomGenerator generator;
-    Scatter scatter;
-    double Elow = 14000d;
-    double thetaTransport = 24.107064 / 180 * Math.PI;
-    double thetaPinch = 19.481097 / 180 * Math.PI;
+    private Scatter scatter;
+    double Elow = 14000d;//default value
+    double thetaTransport = 24.107064 / 180 * Math.PI;// default value
+    double thetaPinch = 19.481097 / 180 * Math.PI;// default value
 
 
-    public ElectronTrappingSimulator() {
+    public Simulator() {
         generator = new SynchronizedRandomGenerator(new MersenneTwister());
         scatter = new Scatter(generator);
+    }
+
+    public Simulator(double Bsource, double Btransport, double Bpinch, double Elow){
+        this();
+        setFields(Bsource, Btransport, Bpinch);
+        setElow(Elow);
     }
 
     public static enum EndState {
@@ -44,7 +49,11 @@ public class ElectronTrappingSimulator {
         NONE
     }
 
-    public void setFields(double Bsource, double Btransport, double Bpinch) {
+    public final void setElow(double elow) {
+        Elow = elow;
+    }
+
+    public final void setFields(double Bsource, double Btransport, double Bpinch) {
         this.thetaTransport = Math.asin(Math.sqrt(Bsource / Btransport));
         this.thetaPinch = Math.asin(Math.sqrt(Bsource / Bpinch));
     }
@@ -55,20 +64,19 @@ public class ElectronTrappingSimulator {
      * Считаем, что за один проход источника происходит в среднем существенно
      * меньше одного столкновения, поэтому выход вперед или назад совершенно
      * симментричны.
-     *
      */
-    public SimulaionResult simulateOne(double initEnergy, double initTheta) {
+    public SimulationResult simulate(double initEnergy, double initTheta) {
         assert initEnergy > 0;
         assert initTheta > 0 && initTheta < Math.PI / 2;
 
         if (initTheta < this.thetaPinch) {
             if (generator.nextBoolean()) {
-                return new SimulaionResult(EndState.PASS, initEnergy, initTheta, initTheta, 0);
+                return new SimulationResult(EndState.PASS, initEnergy, initTheta, initTheta, 0);
             } else {
-                return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
+                return new SimulationResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
             }
         } else if (initTheta < this.thetaTransport) {
-            return new SimulaionResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
+            return new SimulationResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
         }
 
         double E = initEnergy;
@@ -80,7 +88,7 @@ public class ElectronTrappingSimulator {
 
         while (!stopflag) {
             colNum++;
-            Pair<Double,Double> delta;
+            Pair<Double, Double> delta;
 
             //Вычисляем сечения и нормируем их на полное сечение
             double sigmaIon = scatter.sigmaion(E);
@@ -138,12 +146,9 @@ public class ElectronTrappingSimulator {
                 state = EndState.LOWENERGY;
             }
         }
-        SimulaionResult res = new SimulaionResult(state, E, theta, initTheta, colNum);
-        if (state == EndState.ACCEPTED) {
-            printOne(System.out, res);
-        }
-        return res;
 
+        SimulationResult res = new SimulationResult(state, E, theta, initTheta, colNum);
+        return res;
     }
 
     /**
@@ -153,38 +158,20 @@ public class ElectronTrappingSimulator {
      * @param dTheta
      * @return
      */
-    double addTheta(double theta, double dTheta) {
+    private double addTheta(double theta, double dTheta) {
         //Генерируем случайный фи
-        double phi = generator.nextDouble()* 2 * Math.PI;
+        double phi = generator.nextDouble() * 2 * Math.PI;
         //Создаем начальный вектор в сферических координатах
         SphericalCoordinates init = new SphericalCoordinates(1, 0, theta + dTheta);
         // Задаем вращение относительно оси, перпендикулярной исходному вектору
         SphericalCoordinates rotate = new SphericalCoordinates(1, 0, theta);
         // поворачиваем исходный вектор на dTheta
-        Rotation rot = new Rotation(rotate.getCartesian(), phi);
+        Rotation rot = new Rotation(rotate.getCartesian(), phi, null);
 
         Vector3D result = rot.applyTo(init.getCartesian());
 
         //      assert Vector3D.angle(result, rotate.getCartesian()) == dTheta;
         return Math.acos(result.getZ());
-    }
-
-    /**
-     * Симулируем пролет num электронов.
-     *
-     * @param E
-     * @param num
-     * @return
-     */
-    public List<SimulaionResult> simulateAll(double E, int num) {
-        System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", E, num);
-        return Stream.generate(() -> getRandomTheta()).limit(num).parallel()
-                .map(theta -> simulateOne(E, theta))
-                .collect(Collectors.toList());
-    }
-
-    public static void printOne(PrintStream out, SimulaionResult res) {
-        out.printf("%g\t%g\t%g\t%d\t%s%n", res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.state.toString());
     }
 
     private double normalizeTheta(double theta) {
@@ -203,24 +190,30 @@ public class ElectronTrappingSimulator {
         }
     }
 
-    public double getRandomTheta() {
-        double x = generator.nextDouble();
-        return Math.acos(x);
+    public void resetDebugCounters(){
+        scatter.counter.resetAll();
     }
 
-    public class SimulaionResult {
+    public void printDebugCounters(){
+        scatter.counter.print(System.out);
+    }
 
-        public SimulaionResult(EndState state, double E, double theta, double initTheta, int collisionNumber) {
+    public static class SimulationResult {
+
+        public SimulationResult(EndState state, double E, double theta, double initTheta, int collisionNumber) {
             this.state = state;
             this.E = E;
             this.theta = theta;
             this.initTheta = initTheta;
             this.collisionNumber = collisionNumber;
         }
+
         public EndState state;
         public double E;
         public double initTheta;
         public double theta;
         public int collisionNumber;
     }
+
+
 }
