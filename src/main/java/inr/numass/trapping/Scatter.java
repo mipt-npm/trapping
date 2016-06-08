@@ -8,15 +8,7 @@
  */
 package inr.numass.trapping;
 
-import static java.lang.Math.abs;
-import static java.lang.Math.acos;
-import static java.lang.Math.atan;
-import static java.lang.Math.cos;
-import static java.lang.Math.exp;
-import static java.lang.Math.log;
-import static java.lang.Math.sin;
-import static java.lang.Math.sqrt;
-import static java.lang.Math.tan;
+import static  org.apache.commons.math3.util.FastMath.*;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.util.Pair;
 
@@ -31,12 +23,21 @@ public class Scatter {
     static final double emass = 18780; // Electron mass in atomic units
     static final double R = 13.6; // Ryberg energy in eV
     private final RandomGenerator generator;
+
+    boolean debug = false;
+
     MultiCounter counter = new MultiCounter("Accept-reject calls");
 
     private double fmax = 0;
 
     public Scatter(RandomGenerator generator) {
         this.generator = generator;
+    }
+
+    private void count(String counterName){
+        if(debug){
+            counter.increase(counterName);
+        }
     }
 
     public Pair<Double, Double> randomel(double E) {
@@ -52,7 +53,7 @@ public class Scatter {
         double[] u = new double[3];
         int i;
 
-        counter.increase("randomel-calls");
+        count("randomel-calls");
         if (E >= 250.) {
             Gmax = 1.e-19;
         } else if (E < 250. && E >= 150.) {
@@ -64,7 +65,7 @@ public class Scatter {
         gam = 1. + T / (clight * clight); // relativistic correction factor
         b = 2. / (1. + gam) / T;
         for (i = 1; i < 5000; i++) {
-            counter.increase("randomel");
+            count("randomel");
             c = 1. + b - b * (2. + b) / (b + 2. * generator.nextDouble());
             K2 = 2. * T * (1. + gam) * abs(1d - c); // momentum transfer squared
             a = (4. + K2) * (4. + K2) / (gam * gam);
@@ -117,7 +118,7 @@ public class Scatter {
         //   (from: Phys. Rev. A51 (1995) 3745 )
         double[] pC = {1.2e-1, 1.9e-1, 1.9e-1, 1.5e-1, 1.1e-1, 7.5e-2, 5.0e-2,
             3.3e-2, 2.2e-2, 1.4e-2, 9.3e-3, 6.0e-3, 3.7e-3, 1.8e-3};
-        counter.increase("randomexc-calls");
+        count("randomexc-calls");
         T = 20000. / 27.2;
         //
         xmin = Ecen * Ecen / (2. * T);
@@ -153,7 +154,7 @@ public class Scatter {
             // Generation of y values with the Neumann acceptance-rejection method:
             y = ymin;
             for (j = 1; j < 5000; j++) {
-                counter.increase("randomexc1");
+                count("randomexc1");
                 y = ymin + (ymax - ymin) * generator.nextDouble();
                 K = exp(y / 2.);
                 fy = sumexc(K);
@@ -176,7 +177,7 @@ public class Scatter {
                 Dmax = 400.;
             }
             for (j = 1; j < 5000; j++) {
-                counter.increase("randomexc2");
+                count("randomexc2");
                 c = -1. + 2. * generator.nextDouble();
                 D = Dexc(E, c) * 1.e22;
                 if (Dmax * generator.nextDouble() < D) {
@@ -192,7 +193,7 @@ public class Scatter {
         N = 7; // the number of electronic states in our calculation
         pmax = p[1]; // the maximum of the p[] values
         for (j = 1; j < 5000; j++) {
-            counter.increase("randomexc3");
+            count("randomexc3");
             n = (int) (N * generator.nextDouble());
             if (generator.nextDouble() * pmax < p[n]) {
                 break;
@@ -215,7 +216,7 @@ public class Scatter {
                 N = 28; // the number of B vibrational states in our calculation
                 pmax = pB[7]; // maximum of the pB[] values
                 for (j = 1; j < 5000; j++) {
-                    counter.increase("randomexc4");
+                    count("randomexc4");
                     v = (int) (N * generator.nextDouble());
                     if (generator.nextDouble() * pmax < pB[v]) {
                         break;
@@ -235,7 +236,7 @@ public class Scatter {
                 N = 14; // the number of C vibrational states in our calculation
                 pmax = pC[1]; // maximum of the pC[] values
                 for (j = 1; j < 5000; j++) {
-                    counter.increase("randomexc4");
+                    count("randomexc4");
                     v = (int) (N * generator.nextDouble());
                     if (generator.nextDouble() * pmax < pC[v]) {
                         break;
@@ -275,7 +276,7 @@ public class Scatter {
         double K2, KK, fE, kej, ki, kf, Rex, arg, arctg;
         int i;
         double st1, st2;
-        counter.increase("randomion-calls");
+        count("randomion-calls");
         //
         // I. Generation of theta
         // -----------------------
@@ -291,7 +292,7 @@ public class Scatter {
         // Generation of y values with the Neumann acceptance-rejection method:
         y = ymin;
         for (j = 1; j < 5000; j++) {
-            counter.increase("randomion1");
+            count("randomion1");
             y = ymin + (ymax - ymin) * generator.nextDouble();
             K = exp(y / 2.);
             c = 1. + b - K * K / (4. * T);
@@ -350,7 +351,7 @@ public class Scatter {
             // Generation of q with inverse transform method
             // (we use the Newton-Raphson method in order to solve the nonlinear eq.
             // for the inversion) :
-            counter.increase("randomion2");
+            count("randomion2");
             F = Fmin + h * generator.nextDouble();
             y = 0.;
             for (i = 1; i <= 30; i++) {

@@ -1,9 +1,15 @@
 package inr.numass.trapping;
 
+import org.apache.commons.math3.analysis.UnivariateFunction;
+import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
+import org.apache.commons.math3.random.ISAACRandom;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.random.SynchronizedRandomGenerator;
 
 import java.io.PrintStream;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -35,6 +41,21 @@ public class SimulationManager {
         return this;
     }
 
+    public SimulationManager withFieldMap(UnivariateFunction fieldMap) {
+        this.simulator.setFieldFunc(fieldMap);
+        return this;
+    }
+
+    public SimulationManager withFieldMap(double[] z, double[] b) {
+        this.simulator.setFieldFunc(new LinearInterpolator().interpolate(z, b));
+        return this;
+    }
+
+    public SimulationManager withDensity(double density){
+        this.simulator.setGasDensity(density);
+        return this;
+    }
+
     /**
      * Симулируем пролет num электронов.
      *
@@ -47,7 +68,8 @@ public class SimulationManager {
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num);
         Stream.generate(() -> getRandomTheta()).limit(num).parallel()
                 .forEach((theta) -> {
-                    Simulator.SimulationResult res = simulator.simulate(initialE, theta);
+                    double initZ = generator.nextDouble() * Simulator.SOURCE_LENGTH;
+                    Simulator.SimulationResult res = simulator.simulate(initialE, theta, initZ);
                     if (reportIf.test(res)) {
                         if (output != null) {
                             printOne(output, res);
@@ -61,7 +83,8 @@ public class SimulationManager {
 
     private double getRandomTheta() {
         double x = generator.nextDouble();
-        return Math.acos(x);
+        // from 0 to 2 Pi
+        return Math.acos(1 - 2 * x);
     }
 
     private void printStatistics(Counter counter) {
@@ -70,7 +93,7 @@ public class SimulationManager {
         output.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
         output.printf("The transport reflection angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
         output.printf("The starting energy is %g.%n", initialE);
-        output.printf("The lower energy boundary is %g.%n%n", simulator.Elow);
+        output.printf("The lower energy boundary is %g.%n%n", simulator.eLow);
 
         output.printf("The total number of ACCEPTED events is %d.%n", counter.accepted);
         output.printf("The total number of PASS events is %d.%n", counter.pass);
