@@ -31,27 +31,59 @@ public class SimulationManager {
         return this;
     }
 
+    /**
+     * Select output for accepted events
+     *
+     * @param output
+     * @return
+     */
     public SimulationManager withOutput(PrintStream output) {
         this.output = output;
         return this;
     }
 
+    /**
+     * Select output for statistics
+     *
+     * @param statisticOutput
+     * @return
+     */
     public SimulationManager withStatisticOutput(PrintStream statisticOutput) {
         this.statisticOutput = statisticOutput;
         return this;
     }
 
+    /**
+     * Set field map as function
+     *
+     * @param fieldMap
+     * @return
+     */
     public SimulationManager withFieldMap(UnivariateFunction fieldMap) {
         this.simulator.setFieldFunc(fieldMap);
         return this;
     }
 
+    /**
+     * Set field map from values
+     *
+     * @param z
+     * @param b
+     * @return
+     */
     public SimulationManager withFieldMap(double[] z, double[] b) {
         this.simulator.setFieldFunc(new LinearInterpolator().interpolate(z, b));
         return this;
     }
 
-    public SimulationManager withDensity(double density){
+    /**
+     * Set source density
+     * PENDING replace by source thickness?
+     *
+     * @param density
+     * @return
+     */
+    public SimulationManager withDensity(double density) {
         this.simulator.setGasDensity(density);
         return this;
     }
@@ -68,7 +100,7 @@ public class SimulationManager {
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num);
         Stream.generate(() -> getRandomTheta()).limit(num).parallel()
                 .forEach((theta) -> {
-                    double initZ = generator.nextDouble() * Simulator.SOURCE_LENGTH;
+                    double initZ = (generator.nextDouble()-1) * Simulator.SOURCE_LENGTH;
                     Simulator.SimulationResult res = simulator.simulate(initialE, theta, initZ);
                     if (reportIf.test(res)) {
                         if (output != null) {
@@ -83,7 +115,7 @@ public class SimulationManager {
 
     private double getRandomTheta() {
         double x = generator.nextDouble();
-        // from 0 to 2 Pi
+        // from 0 to Pi
         return Math.acos(1 - 2 * x);
     }
 
@@ -106,6 +138,9 @@ public class SimulationManager {
     }
 
 
+    /**
+     * Statistic counter
+     */
     public static class Counter {
         int accepted = 0;
         int pass = 0;

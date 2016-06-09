@@ -8,7 +8,7 @@ mainClassName = "inr.numass.trapping.Trapping"
 group = 'inr.numass'
 version = 'dev'
 
-description = """trapping"""
+description = "Numass trapping simulation"
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -18,9 +18,9 @@ tasks.withType(JavaCompile) {
 }
 
 repositories {
-
-     maven { url "http://repo.maven.apache.org/maven2" }
+    mavencentral()
 }
+
 dependencies {
     compile group: 'org.apache.commons', name: 'commons-math3', version:'3.6.1'
     testCompile group: 'junit', name: 'junit', version:'4.12'

@@ -26,7 +26,8 @@ public class Trapping {
         new SimulationManager()
                 .withParameters(0.6, 3.7, 4.84, 18000d, 4000)
 //                .withFieldMap(z, b)
-                .simulateAll((int) 1e4);
+//                .withDensity(5e20)
+                .simulateAll((int) 1e5);
         Instant finishTime = Instant.now();
         System.out.printf("%nFinished at %s%n", finishTime.toString());
         System.out.printf("Calculation took %s%n", Duration.between(startTime,finishTime).toString());

@@ -11,10 +11,9 @@ import org.apache.commons.math3.geometry.euclidean.threed.SphericalCoordinates;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
+import org.apache.commons.math3.util.DoubleArray;
 import org.apache.commons.math3.util.Pair;
 import org.apache.commons.math3.util.Precision;
-
-import java.util.function.Function;
 
 import static org.apache.commons.math3.util.FastMath.*;
 
@@ -24,7 +23,7 @@ import static org.apache.commons.math3.util.FastMath.*;
 public class Simulator {
 
     public static final double SOURCE_LENGTH = 3d;
-    private static final double DELTA_L = 0.1; //step for dZ calculation
+    private static final double DELTA_L = 0.1; //step for deltaZ calculation
 
     private RandomGenerator generator;
     private Scatter scatter;
@@ -138,24 +137,45 @@ public class Simulator {
     /**
      * calculate z coordinate change with known path length. Does not change position.
      *
-     * @param dl
-     * @return
+     * @param deltaL
+     * @return z shift and reflection counter
      */
-    private double dZ(State position, double dl) {
+    private Pair<Double, Integer> deltaZ(State position, double deltaL) {
         // if magnetic field not defined, consider it to be uniform and equal bSource
+        int direction = position.isForward() ? 1 : -1;
         if (magneticField == null) {
-            return dl / cos(position.theta);
+            double deltaZ = direction * deltaL * cos(position.theta);
+            int reflectionCounter = (int) (deltaZ / SOURCE_LENGTH);
+            double curZ = normalizeZ(position.z + deltaZ);
+            return new Pair<>(curZ - position.z, reflectionCounter);
         } else {
-            double dz = 0;
+            int reflect = 0;
+            double curZ = position.z;
             double curL = 0;
-            while (curL <= dl) {
-                double delta = min(dl - curL, DELTA_L);
-                double b = field(position.z + dz);
 
-                dz += delta / sqrt(1 - pow(sin(position.theta), 2) * b / bSource);
-                curL += DELTA_L;
+
+            double sin2 = sin(position.theta) * sin(position.theta);
+
+            while (curL <= deltaL) {
+                double delta = DELTA_L; //min(deltaL - curL, DELTA_L);
+                double b = field(curZ);
+
+                //TODO check this!
+                double root = 1 - sin2 * b / bSource;
+                // change direction in case of reflection. Loss of precision here?
+                if (root < 0) {
+                    direction = -direction;
+                    root = -root;
+                    reflect++;
+                }
+
+                curZ += direction * delta * sqrt(root);
+
+                curZ = normalizeZ(curZ);
+
+                curL += delta;
             }
-            return dz;
+            return new Pair<>(curZ - position.z, reflect);
         }
     }
 
@@ -169,16 +189,21 @@ public class Simulator {
         if (magneticField == null) {
             return bSource;
         } else {
-            while (!(z > 0 && z < SOURCE_LENGTH)) {
-                // reflecting from back wall
-                if (z < 0) {
-                    z = -z;
-                } else {
-                    z -= SOURCE_LENGTH;
-                }
-            }
             return magneticField.value(z);
         }
+    }
+
+    private double normalizeZ(double z) {
+        while ((abs(z) > SOURCE_LENGTH / 2)) {
+            if (z < 0) {
+                // reflecting from rear pinch
+                z += SOURCE_LENGTH / 2d;
+            } else {
+                // reflecting from forward transport magnet
+                z -= SOURCE_LENGTH / 2d;
+            }
+        }
+        return z;
     }
 
     /**
@@ -188,17 +213,7 @@ public class Simulator {
     public SimulationResult simulate(double initEnergy, double initTheta, double initZ) {
         assert initEnergy > 0;
         assert initTheta > 0 && initTheta < Math.PI;
-        assert initZ >= 0 && initZ < SOURCE_LENGTH;
-
-//        if (initTheta < this.thetaPinch) {
-//            if (generator.nextBoolean()) {
-//                return new SimulationResult(EndState.PASS, initEnergy, initTheta, initTheta, 0);
-//            } else {
-//                return new SimulationResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
-//            }
-//        } else if (initTheta < this.thetaTransport) {
-//            return new SimulationResult(EndState.REJECTED, initEnergy, initTheta, initTheta, 0);
-//        }
+        assert abs(initZ) <= SOURCE_LENGTH / 2d;
 
         State pos = new State(initEnergy, initTheta, initZ);
         EndState endState = EndState.NONE;
@@ -208,15 +223,15 @@ public class Simulator {
         while (!stopflag) {
 
             double dl = freePath(pos.e); // path to next scattering
-            double dz = dZ(pos, dl); // z coordinate to next scattering
-            double expectedZ = pos.z + dz; // expected z position of next scattering
+            Pair<Double, Integer> dzCalc = deltaZ(pos, dl);
+            double dz = dzCalc.getFirst();// z coordinate to next scattering
+            int reflections = dzCalc.getSecond();
 
             //if no scattering on current source pass
-            if (expectedZ < 0 || expectedZ > SOURCE_LENGTH) {
+            if (reflections > 0) {
                 //accepted by spectrometer
                 if (pos.theta < thetaPinch) {
                     stopflag = true;
-                    //Учитываем тот факт, что электрон мог вылететь в правильный угол, но назад
                     if (pos.colNum == 0) {
                         //counting pass electrons
                         endState = EndState.PASS;
@@ -226,16 +241,10 @@ public class Simulator {
                 }
 
 
-                //through the rear magnetic trap
+                //through the rear magnetic pinch
                 if (pos.theta >= PI - thetaTransport) {
                     stopflag = true;
                     endState = EndState.REJECTED;
-                }
-
-                if (pos.e < eLow) {
-                    //Если энергия стала слишком маленькой
-                    stopflag = true;
-                    endState = EndState.LOWENERGY;
                 }
             }
             if (!stopflag) {
@@ -243,6 +252,11 @@ public class Simulator {
                 propagate(pos, dl, dz);
                 pos.colNum++;
                 scatter(pos);
+                if (pos.e < eLow) {
+                    //Если энергия стала слишком маленькой
+                    stopflag = true;
+                    endState = EndState.LOWENERGY;
+                }
             }
 
         }
@@ -312,7 +326,7 @@ public class Simulator {
         int colNum = 0;
 
         /**
-         * current z;
+         * current z. Zero is the center of the source
          */
         double z;
 
@@ -337,13 +351,13 @@ public class Simulator {
          */
         double addZ(double dZ) {
             this.z += dZ;
-            while (!(this.z > 0 && this.z < SOURCE_LENGTH)) {
+            while (abs(this.z) > SOURCE_LENGTH / 2d) {
                 // reflecting from back wall
                 if (z < 0) {
-                    z = -z;
+                    z += SOURCE_LENGTH / 2d;
                     flip();
                 } else {
-                    z -= SOURCE_LENGTH;
+                    z -= SOURCE_LENGTH / 2d;
                     flip();
                 }
             }
@@ -375,7 +389,14 @@ public class Simulator {
             if (magneticField == null) {
                 return theta;
             } else {
-                return asin(sin(theta) * sqrt(field() / bSource));
+                double newTheta = asin(min(abs(sin(theta)) * sqrt(field() / bSource), 1));
+                if (theta > PI / 2) {
+                    newTheta = PI - newTheta;
+                }
+                if (Double.isNaN(newTheta)) {
+                    throw new Error();
+                }
+                return newTheta;
             }
         }
 
@@ -406,7 +427,7 @@ public class Simulator {
             if (newtheta < 0) {
                 newtheta = -newtheta;
             }
-            if (newtheta > Math.PI && newtheta <= Math.PI * 3 / 2) {
+            if (newtheta > Math.PI) {
                 newtheta = 2 * Math.PI - newtheta;
             }
 
@@ -415,7 +436,15 @@ public class Simulator {
                 theta = newtheta;
             } else {
                 theta = asin(sin(newtheta) * sqrt(bSource / field()));
+                if (newtheta > PI / 2) {
+                    theta = PI - theta;
+                }
             }
+
+            if (Double.isNaN(theta)) {
+                throw new Error();
+            }
+
             return theta;
         }
 
