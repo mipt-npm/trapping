@@ -7,7 +7,7 @@ import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.SynchronizedRandomGenerator;
 
-import java.io.PrintStream;
+import java.io.*;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -28,6 +28,16 @@ public class SimulationManager {
     public SimulationManager withParameters(double bSource, double bTransport, double bPinch, double initialE, double energyRange) {
         this.simulator = new Simulator(bSource, bTransport, bPinch, initialE - energyRange);
         this.initialE = initialE;
+        return this;
+    }
+
+    public SimulationManager withOutputFile(String fileName) throws IOException {
+        File outputFile = new File(fileName);
+        if (!outputFile.exists()) {
+            outputFile.getParentFile().mkdirs();
+            outputFile.createNewFile();
+        }
+        this.output = new PrintStream(new FileOutputStream(outputFile));
         return this;
     }
 
@@ -100,7 +110,7 @@ public class SimulationManager {
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num);
         Stream.generate(() -> getRandomTheta()).limit(num).parallel()
                 .forEach((theta) -> {
-                    double initZ = (generator.nextDouble()-1) * Simulator.SOURCE_LENGTH;
+                    double initZ = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH;
                     Simulator.SimulationResult res = simulator.simulate(initialE, theta, initZ);
                     if (reportIf.test(res)) {
                         if (output != null) {

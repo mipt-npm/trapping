@@ -11,7 +11,6 @@ import org.apache.commons.math3.geometry.euclidean.threed.SphericalCoordinates;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
-import org.apache.commons.math3.util.DoubleArray;
 import org.apache.commons.math3.util.Pair;
 import org.apache.commons.math3.util.Precision;
 
@@ -23,7 +22,7 @@ import static org.apache.commons.math3.util.FastMath.*;
 public class Simulator {
 
     public static final double SOURCE_LENGTH = 3d;
-    private static final double DELTA_L = 0.1; //step for deltaZ calculation
+    private static final double DELTA_L = 0.1; //step for propagate calculation
 
     private RandomGenerator generator;
     private Scatter scatter;
@@ -123,64 +122,104 @@ public class Simulator {
     }
 
     /**
-     * @param position
-     * @param dl
-     * @return
-     */
-    private State propagate(State position, double dl, double dz) {
-        //increase l
-        position.l += dl;
-        position.addZ(dz);
-        return position;
-    }
-
-    /**
-     * calculate z coordinate change with known path length. Does not change position.
+     * Calculate propagated position
      *
      * @param deltaL
      * @return z shift and reflection counter
      */
-    private Pair<Double, Integer> deltaZ(State position, double deltaL) {
+    private State propagate(State pos, double deltaL) {
         // if magnetic field not defined, consider it to be uniform and equal bSource
-        int direction = position.isForward() ? 1 : -1;
         if (magneticField == null) {
-            double deltaZ = direction * deltaL * cos(position.theta);
-            int reflectionCounter = (int) (deltaZ / SOURCE_LENGTH);
-            double curZ = normalizeZ(position.z + deltaZ);
-            return new Pair<>(curZ - position.z, reflectionCounter);
+            double deltaZ = deltaL * cos(pos.theta); // direction already included in cos(theta)
+
+            //if we are crossing source boundary, check for end condition
+            if(abs(deltaZ + pos.z)>SOURCE_LENGTH/2d) {
+                checkEndState(pos);
+            }
+
+            // if track is finished apply boundary position
+            if (pos.isFinished()) {
+                // remembering old z to correctly calculate total l
+                double oldz = pos.z;
+                pos.z = pos.direction() * SOURCE_LENGTH / 2d;
+                pos.l += (pos.z - oldz)/cos(pos.theta);
+            } else {
+                //else just add z
+                pos.l += deltaL;
+                pos.addZ(deltaZ);
+            }
+
+            return pos;
         } else {
-            int reflect = 0;
-            double curZ = position.z;
             double curL = 0;
+            double sin2 = sin(pos.theta) * sin(pos.theta);
 
+            while (curL <= deltaL - 0.01 && !pos.isFinished()) {
+                //an l step
+                double delta = min(deltaL - curL, DELTA_L);
 
-            double sin2 = sin(position.theta) * sin(position.theta);
+                double b = field(pos.z);
 
-            while (curL <= deltaL) {
-                double delta = DELTA_L; //min(deltaL - curL, DELTA_L);
-                double b = field(curZ);
-
-                //TODO check this!
                 double root = 1 - sin2 * b / bSource;
                 // change direction in case of reflection. Loss of precision here?
                 if (root < 0) {
-                    direction = -direction;
-                    root = -root;
-                    reflect++;
+                    //flip direction
+                    pos.flip();
+                    // check if end state occured
+                    checkEndState(pos);
+                    // finish if it does
+                    if(pos.isFinished()){
+                        return pos;
+                    } else {
+                        // move in reversed direction
+                        pos.z += pos.direction() * delta * sqrt(-root);
+                    }
+                } else {
+                    // move
+                    pos.z += pos.direction() * delta * sqrt(root);
                 }
 
-                curZ += direction * delta * sqrt(root);
-
-                curZ = normalizeZ(curZ);
+                //normalize in case reflection is beyound the source
+                if (abs(pos.z) > SOURCE_LENGTH / 2d) {
+                    pos.z = signum(pos.z) * SOURCE_LENGTH / 2d;
+                    if(signum(pos.z)== pos.direction()){
+                        pos.flip();
+                    }
+                }
 
                 curL += delta;
+                pos.l += delta;
             }
-            return new Pair<>(curZ - position.z, reflect);
+            return pos;
         }
     }
 
     /**
-     * Magnetic field with reflection taken into account
+     * Check if this position is an end state and apply it if necessary
+     *
+     * @param pos
+     * @return
+     */
+    private State checkEndState(State pos) {
+        //accepted by spectrometer
+        if (pos.theta < thetaPinch) {
+            if (pos.colNum == 0) {
+                //counting pass electrons
+                pos.setEndState(EndState.PASS);
+            } else {
+                pos.setEndState(EndState.ACCEPTED);
+            }
+        }
+
+        //through the rear magnetic pinch
+        if (pos.theta >= PI - thetaTransport) {
+            pos.setEndState(EndState.REJECTED);
+        }
+        return pos;
+    }
+
+    /**
+     * Magnetic field in the z point
      *
      * @param z
      * @return
@@ -193,19 +232,6 @@ public class Simulator {
         }
     }
 
-    private double normalizeZ(double z) {
-        while ((abs(z) > SOURCE_LENGTH / 2)) {
-            if (z < 0) {
-                // reflecting from rear pinch
-                z += SOURCE_LENGTH / 2d;
-            } else {
-                // reflecting from forward transport magnet
-                z -= SOURCE_LENGTH / 2d;
-            }
-        }
-        return z;
-    }
-
     /**
      * Симулируем один пробег электрона от начального значения и до вылетания из
      * иточника или до того момента, как энергия становится меньше eLow.
@@ -216,52 +242,24 @@ public class Simulator {
         assert abs(initZ) <= SOURCE_LENGTH / 2d;
 
         State pos = new State(initEnergy, initTheta, initZ);
-        EndState endState = EndState.NONE;
 
-        boolean stopflag = false;
-
-        while (!stopflag) {
-
+        while (!pos.isFinished()) {
             double dl = freePath(pos.e); // path to next scattering
-            Pair<Double, Integer> dzCalc = deltaZ(pos, dl);
-            double dz = dzCalc.getFirst();// z coordinate to next scattering
-            int reflections = dzCalc.getSecond();
+            // propagate to next scattering position
+            propagate(pos,dl);
 
-            //if no scattering on current source pass
-            if (reflections > 0) {
-                //accepted by spectrometer
-                if (pos.theta < thetaPinch) {
-                    stopflag = true;
-                    if (pos.colNum == 0) {
-                        //counting pass electrons
-                        endState = EndState.PASS;
-                    } else {
-                        endState = EndState.ACCEPTED;
-                    }
-                }
-
-
-                //through the rear magnetic pinch
-                if (pos.theta >= PI - thetaTransport) {
-                    stopflag = true;
-                    endState = EndState.REJECTED;
-                }
-            }
-            if (!stopflag) {
+            if (!pos.isFinished()) {
                 // perform scatter
-                propagate(pos, dl, dz);
-                pos.colNum++;
                 scatter(pos);
+                pos.colNum++;
                 if (pos.e < eLow) {
                     //Если энергия стала слишком маленькой
-                    stopflag = true;
-                    endState = EndState.LOWENERGY;
+                    pos.setEndState(EndState.LOWENERGY);
                 }
             }
-
         }
 
-        SimulationResult res = new SimulationResult(endState, pos.e, pos.theta, initTheta, pos.colNum, pos.l);
+        SimulationResult res = new SimulationResult(pos.endState, pos.e, pos.theta, initTheta, pos.colNum, pos.l);
         return res;
     }
 
@@ -330,6 +328,8 @@ public class Simulator {
          */
         double z;
 
+        EndState endState = EndState.NONE;
+
         /**
          * @param dE
          * @return resulting E
@@ -343,6 +343,18 @@ public class Simulator {
             return theta <= Math.PI / 2;
         }
 
+        double direction() {
+            return isForward() ? 1 : -1;
+        }
+
+        boolean isFinished() {
+            return this.endState != EndState.NONE;
+        }
+
+        void setEndState(EndState state) {
+            this.endState = state;
+        }
+
         /**
          * add Z and calculate direction change
          *
@@ -354,12 +366,13 @@ public class Simulator {
             while (abs(this.z) > SOURCE_LENGTH / 2d) {
                 // reflecting from back wall
                 if (z < 0) {
-                    z += SOURCE_LENGTH / 2d;
-                    flip();
+                    // reflecting from rear pinch
+                    z = -SOURCE_LENGTH - z;
                 } else {
-                    z -= SOURCE_LENGTH / 2d;
-                    flip();
+                    // reflecting from forward transport magnet
+                    z = SOURCE_LENGTH - z;
                 }
+                flip();
             }
             return z;
         }
@@ -399,6 +412,7 @@ public class Simulator {
                 return newTheta;
             }
         }
+
 
         /**
          * Сложение вектора с учетом случайно распределения по фи
