@@ -108,6 +108,7 @@ public class SimulationManager {
         Counter counter = new Counter();
         Predicate<Simulator.SimulationResult> reportIf = (res) -> res.state == Simulator.EndState.ACCEPTED;
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num);
+        output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state");
         Stream.generate(() -> getRandomTheta()).limit(num).parallel()
                 .forEach((theta) -> {
                     double initZ = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH;
@@ -144,7 +145,7 @@ public class SimulationManager {
     }
 
     private void printOne(PrintStream out, Simulator.SimulationResult res) {
-        out.printf("%g\t%g\t%g\t%d\t%s%n", res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.state.toString());
+        out.printf("%g\t%g\t%g\t%d\t%g\t%s%n", res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.l, res.state.toString());
     }
 
 

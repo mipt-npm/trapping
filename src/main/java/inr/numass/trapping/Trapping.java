@@ -16,10 +16,10 @@ public class Trapping {
         System.out.printf("Starting at %s%n%n", startTime.toString());
         new SimulationManager()
                 .withParameters(0.6, 3.7, 4.84, 18000d, 4000)
-//                .withOutputFile("D:\\Work\\Numass\\trapping\\trap 18, pinch 100A, fields.out")
+                .withOutputFile("D:\\Work\\Numass\\trapping\\trap 18, pinch 100A.out")
 //                .withFieldMap(z, b)
 //                .withDensity(5e20)
-                .simulateAll((int) 1e4);
+                .simulateAll((int) 1e6);
         Instant finishTime = Instant.now();
         System.out.printf("%nFinished at %s%n", finishTime.toString());
         System.out.printf("Calculation took %s%n", Duration.between(startTime,finishTime).toString());

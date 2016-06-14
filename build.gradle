@@ -17,6 +17,10 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
+tasks.withType(JavaExec){
+    enableAssertions = true
+}
+
 repositories {
     mavenCentral()
 }

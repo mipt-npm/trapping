@@ -45,7 +45,7 @@ public class Simulator {
         setELow(Elow);
     }
 
-    public static enum EndState {
+    public enum EndState {
 
         ACCEPTED,//трэппинговый электрон попал в аксептанс
         REJECTED,//трэппинговый электрон вылетел через заднюю пробку
@@ -64,14 +64,30 @@ public class Simulator {
         this.thetaPinch = Math.asin(Math.sqrt(Bsource / Bpinch));
     }
 
+    /**
+     * Set gas density in 1/m^3
+     *
+     * @param gasDensity
+     */
     public void setGasDensity(double gasDensity) {
         this.gasDensity = gasDensity;
     }
 
+    /**
+     * Longitudal magnetic field distribution
+     *
+     * @param magneticField
+     */
     public void setFieldFunc(UnivariateFunction magneticField) {
         this.magneticField = magneticField;
     }
 
+    /**
+     * Perform scattering in the given position
+     *
+     * @param pos
+     * @return
+     */
     private State scatter(State pos) {
         //Вычисляем сечения и нормируем их на полное сечение
         double sigmaIon = scatter.sigmaion(pos.e);
@@ -116,13 +132,13 @@ public class Simulator {
      * @return
      */
     private double freePath(double e) {
-        //FIXME double cross-section calculation
+        //FIXME redundant cross-section calculation
         //All cross-sections are in m^2
-        return new ExponentialDistribution(generator, 1 / scatter.sigmaTotal(e) / gasDensity).sample();
+        return new ExponentialDistribution(generator, 1d / scatter.sigmaTotal(e) / gasDensity).sample();
     }
 
     /**
-     * Calculate propagated position
+     * Calculate propagated position before scattering
      *
      * @param deltaL
      * @return z shift and reflection counter
@@ -131,23 +147,27 @@ public class Simulator {
         // if magnetic field not defined, consider it to be uniform and equal bSource
         if (magneticField == null) {
             double deltaZ = deltaL * cos(pos.theta); // direction already included in cos(theta)
+            double z0 = pos.z;
+            pos.addZ(deltaZ);
+            pos.l += abs(pos.z - z0) / cos(pos.theta);
 
-            //if we are crossing source boundary, check for end condition
-            if(abs(deltaZ + pos.z)>SOURCE_LENGTH/2d) {
-                checkEndState(pos);
-            }
-
-            // if track is finished apply boundary position
-            if (pos.isFinished()) {
-                // remembering old z to correctly calculate total l
-                double oldz = pos.z;
-                pos.z = pos.direction() * SOURCE_LENGTH / 2d;
-                pos.l += (pos.z - oldz)/cos(pos.theta);
-            } else {
-                //else just add z
-                pos.l += deltaL;
-                pos.addZ(deltaZ);
-            }
+//            //if we are crossing source boundary, check for end condition
+//            while (abs(deltaZ + pos.z) > SOURCE_LENGTH / 2d && !pos.isFinished()) {
+//
+//                pos.checkEndState();
+//            }
+//
+//            // if track is finished apply boundary position
+//            if (pos.isFinished()) {
+//                // remembering old z to correctly calculate total l
+//                double oldz = pos.z;
+//                pos.z = pos.direction() * SOURCE_LENGTH / 2d;
+//                pos.l += (pos.z - oldz) / cos(pos.theta);
+//            } else {
+//                //else just add z
+//                pos.l += deltaL;
+//                pos.addZ(deltaZ);
+//            }
 
             return pos;
         } else {
@@ -161,61 +181,51 @@ public class Simulator {
                 double b = field(pos.z);
 
                 double root = 1 - sin2 * b / bSource;
-                // change direction in case of reflection. Loss of precision here?
+                //preliminary reflection
                 if (root < 0) {
-                    //flip direction
                     pos.flip();
-                    // check if end state occured
-                    checkEndState(pos);
-                    // finish if it does
-                    if(pos.isFinished()){
-                        return pos;
-                    } else {
-                        // move in reversed direction
-                        pos.z += pos.direction() * delta * sqrt(-root);
-                    }
-                } else {
-                    // move
-                    pos.z += pos.direction() * delta * sqrt(root);
                 }
+                pos.addZ(pos.direction() * delta * sqrt(abs(root)));
+//                // change direction in case of reflection. Loss of precision here?
+//                if (root < 0) {
+//                    // check if end state occurred. seem to never happen since it is reflection case
+//                    pos.checkEndState();
+//                    // finish if it does
+//                    if (pos.isFinished()) {
+//                        //TODO check if it happens
+//                        return pos;
+//                    } else {
+//                        //flip direction
+//                        pos.flip();
+//                        // move in reversed direction
+//                        pos.z += pos.direction() * delta * sqrt(-root);
+//                    }
+//
+//                } else {
+//                    // move forward
+//                    pos.z += pos.direction() * delta * sqrt(root);
+//                    //check if it is exit case
+//                    if (abs(pos.z) > SOURCE_LENGTH / 2d) {
+//                        // check if electron is out
+//                        pos.checkEndState();
+//                        // finish if it is
+//                        if (pos.isFinished()) {
+//                            return pos;
+//                        }
+//                        // PENDING no need to apply reflection, it is applied automatically when root < 0
+//                        pos.z = signum(pos.z) * SOURCE_LENGTH / 2d;
+//                        if (signum(pos.z) == pos.direction()) {
+//                            pos.flip();
+//                        }
+//                    }
+//                }
 
-                //normalize in case reflection is beyound the source
-                if (abs(pos.z) > SOURCE_LENGTH / 2d) {
-                    pos.z = signum(pos.z) * SOURCE_LENGTH / 2d;
-                    if(signum(pos.z)== pos.direction()){
-                        pos.flip();
-                    }
-                }
 
                 curL += delta;
                 pos.l += delta;
             }
             return pos;
         }
-    }
-
-    /**
-     * Check if this position is an end state and apply it if necessary
-     *
-     * @param pos
-     * @return
-     */
-    private State checkEndState(State pos) {
-        //accepted by spectrometer
-        if (pos.theta < thetaPinch) {
-            if (pos.colNum == 0) {
-                //counting pass electrons
-                pos.setEndState(EndState.PASS);
-            } else {
-                pos.setEndState(EndState.ACCEPTED);
-            }
-        }
-
-        //through the rear magnetic pinch
-        if (pos.theta >= PI - thetaTransport) {
-            pos.setEndState(EndState.REJECTED);
-        }
-        return pos;
     }
 
     /**
@@ -246,11 +256,12 @@ public class Simulator {
         while (!pos.isFinished()) {
             double dl = freePath(pos.e); // path to next scattering
             // propagate to next scattering position
-            propagate(pos,dl);
+            propagate(pos, dl);
 
             if (!pos.isFinished()) {
                 // perform scatter
                 scatter(pos);
+                // increase collision number
                 pos.colNum++;
                 if (pos.e < eLow) {
                     //Если энергия стала слишком маленькой
@@ -363,18 +374,51 @@ public class Simulator {
          */
         double addZ(double dZ) {
             this.z += dZ;
-            while (abs(this.z) > SOURCE_LENGTH / 2d) {
+            while (abs(this.z) > SOURCE_LENGTH / 2d && !isFinished()) {
+                checkEndState();
+                if (!isFinished()) {
+                    flip();
+                }
                 // reflecting from back wall
                 if (z < 0) {
-                    // reflecting from rear pinch
-                    z = -SOURCE_LENGTH - z;
+                    if (isFinished()) {
+                        z = -SOURCE_LENGTH / 2d;
+                    } else {
+                        // reflecting from rear pinch
+                        z = -SOURCE_LENGTH - z;
+                    }
                 } else {
-                    // reflecting from forward transport magnet
-                    z = SOURCE_LENGTH - z;
+                    if (isFinished()) {
+                        z = SOURCE_LENGTH / 2d;
+                    } else {
+                        // reflecting from forward transport magnet
+                        z = SOURCE_LENGTH - z;
+                    }
                 }
-                flip();
             }
             return z;
+        }
+
+        /**
+         * Check if this position is an end state and apply it if necessary. Does not check z position.
+         *
+         * @return
+         */
+        private void checkEndState() {
+            //accepted by spectrometer
+            if (theta < thetaPinch) {
+                if (colNum == 0) {
+                    //counting pass electrons
+                    setEndState(EndState.PASS);
+                } else {
+                    setEndState(EndState.ACCEPTED);
+                }
+            }
+
+            //through the rear magnetic pinch
+            if (theta >= PI - thetaTransport) {
+                setEndState(EndState.REJECTED);
+            }
         }
 
         /**
@@ -406,9 +450,8 @@ public class Simulator {
                 if (theta > PI / 2) {
                     newTheta = PI - newTheta;
                 }
-                if (Double.isNaN(newTheta)) {
-                    throw new Error();
-                }
+
+                assert !Double.isNaN(newTheta);
                 return newTheta;
             }
         }
@@ -437,13 +480,13 @@ public class Simulator {
 
             double newtheta = acos(result.getZ());
 
-            //следим чтобы угол был от 0 до Pi
-            if (newtheta < 0) {
-                newtheta = -newtheta;
-            }
-            if (newtheta > Math.PI) {
-                newtheta = 2 * Math.PI - newtheta;
-            }
+//            //следим чтобы угол был от 0 до Pi
+//            if (newtheta < 0) {
+//                newtheta = -newtheta;
+//            }
+//            if (newtheta > Math.PI) {
+//                newtheta = 2 * Math.PI - newtheta;
+//            }
 
             //change back to virtual angles
             if (magneticField == null) {
@@ -455,9 +498,7 @@ public class Simulator {
                 }
             }
 
-            if (Double.isNaN(theta)) {
-                throw new Error();
-            }
+            assert !Double.isNaN(theta);
 
             return theta;
         }
