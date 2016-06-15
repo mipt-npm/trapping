@@ -149,7 +149,7 @@ public class Simulator {
             double deltaZ = deltaL * cos(pos.theta); // direction already included in cos(theta)
             double z0 = pos.z;
             pos.addZ(deltaZ);
-            pos.l += abs(pos.z - z0) / cos(pos.theta);
+            pos.l += deltaL;
 
 //            //if we are crossing source boundary, check for end condition
 //            while (abs(deltaZ + pos.z) > SOURCE_LENGTH / 2d && !pos.isFinished()) {
