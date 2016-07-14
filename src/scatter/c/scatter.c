@@ -11,6 +11,7 @@
  */
 
 //#include "scatter.h"
+#define _USE_MATH_DEFINES // for C
 
 #include <math.h>
 #include <stdio.h>

@@ -29,7 +29,7 @@ public class Simulator {
     double eLow = 14000d;//default value
     double thetaTransport = 24.107064 / 180 * Math.PI;// default value
     double thetaPinch = 19.481097 / 180 * Math.PI;// default value
-    double gasDensity = 5e18;// m^-3
+    double gasDensity = 5e20;// m^-3
     double bSource = 0.6;
     private UnivariateFunction magneticField;
 
@@ -147,7 +147,7 @@ public class Simulator {
         // if magnetic field not defined, consider it to be uniform and equal bSource
         if (magneticField == null) {
             double deltaZ = deltaL * cos(pos.theta); // direction already included in cos(theta)
-            double z0 = pos.z;
+//            double z0 = pos.z;
             pos.addZ(deltaZ);
             pos.l += deltaL;
 
@@ -375,12 +375,11 @@ public class Simulator {
         double addZ(double dZ) {
             this.z += dZ;
             while (abs(this.z) > SOURCE_LENGTH / 2d && !isFinished()) {
-                checkEndState();
-                if (!isFinished()) {
-                    flip();
-                }
                 // reflecting from back wall
                 if (z < 0) {
+                    if (theta >= PI - thetaTransport) {
+                        setEndState(EndState.REJECTED);
+                    }
                     if (isFinished()) {
                         z = -SOURCE_LENGTH / 2d;
                     } else {
@@ -388,6 +387,14 @@ public class Simulator {
                         z = -SOURCE_LENGTH - z;
                     }
                 } else {
+                    if (theta < thetaPinch) {
+                        if (colNum == 0) {
+                            //counting pass electrons
+                            setEndState(EndState.PASS);
+                        } else {
+                            setEndState(EndState.ACCEPTED);
+                        }
+                    }
                     if (isFinished()) {
                         z = SOURCE_LENGTH / 2d;
                     } else {
@@ -395,36 +402,42 @@ public class Simulator {
                         z = SOURCE_LENGTH - z;
                     }
                 }
+                if (!isFinished()) {
+                    flip();
+                }
             }
             return z;
         }
 
-        /**
-         * Check if this position is an end state and apply it if necessary. Does not check z position.
-         *
-         * @return
-         */
-        private void checkEndState() {
-            //accepted by spectrometer
-            if (theta < thetaPinch) {
-                if (colNum == 0) {
-                    //counting pass electrons
-                    setEndState(EndState.PASS);
-                } else {
-                    setEndState(EndState.ACCEPTED);
-                }
-            }
-
-            //through the rear magnetic pinch
-            if (theta >= PI - thetaTransport) {
-                setEndState(EndState.REJECTED);
-            }
-        }
+//        /**
+//         * Check if this position is an end state and apply it if necessary. Does not check z position.
+//         *
+//         * @return
+//         */
+//        private void checkEndState() {
+//            //accepted by spectrometer
+//            if (theta < thetaPinch) {
+//                if (colNum == 0) {
+//                    //counting pass electrons
+//                    setEndState(EndState.PASS);
+//                } else {
+//                    setEndState(EndState.ACCEPTED);
+//                }
+//            }
+//
+//            //through the rear magnetic pinch
+//            if (theta >= PI - thetaTransport) {
+//                setEndState(EndState.REJECTED);
+//            }
+//        }
 
         /**
          * Reverse electron direction
          */
         void flip() {
+            if(theta<0||theta>PI){
+                throw new Error();
+            }
             theta = PI - theta;
         }
 

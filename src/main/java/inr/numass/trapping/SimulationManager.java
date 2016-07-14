@@ -131,13 +131,16 @@ public class SimulationManager {
     }
 
     private void printStatistics(Counter counter) {
+        output.println();
+        output.println("***RESULT***");
         output.printf("The total number of events is %d.%n%n", counter.count);
-
         output.printf("The spectrometer acceptance angle is %g.%n", simulator.thetaPinch * 180 / Math.PI);
         output.printf("The transport reflection angle is %g.%n", simulator.thetaTransport * 180 / Math.PI);
         output.printf("The starting energy is %g.%n", initialE);
-        output.printf("The lower energy boundary is %g.%n%n", simulator.eLow);
+        output.printf("The lower energy boundary is %g.%n", simulator.eLow);
+        output.printf("The source density is %g.%n", simulator.gasDensity);
 
+        output.println();
         output.printf("The total number of ACCEPTED events is %d.%n", counter.accepted);
         output.printf("The total number of PASS events is %d.%n", counter.pass);
         output.printf("The total number of REJECTED events is %d.%n", counter.rejected);

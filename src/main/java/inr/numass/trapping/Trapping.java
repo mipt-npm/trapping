@@ -15,10 +15,10 @@ public class Trapping {
         Instant startTime = Instant.now();
         System.out.printf("Starting at %s%n%n", startTime.toString());
         new SimulationManager()
-                .withParameters(0.6, 3.7, 4.84, 14000d, 4000)
-                .withOutputFile("D:\\Work\\Numass\\trapping\\trap 14, pinch 100A.out")
+                .withParameters(0.6, 3.7, 4.84, 18000d, 4000)
+                .withOutputFile("D:\\Work\\Numass\\trapping\\test1.out")
 //                .withFieldMap(z, b)
-//                .withDensity(5e20)
+                .withDensity(1e19)
                 .simulateAll((int) 1e6);
         Instant finishTime = Instant.now();
         System.out.printf("%nFinished at %s%n", finishTime.toString());
