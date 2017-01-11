@@ -1,5 +1,5 @@
 apply plugin: 'java'
-apply plugin: 'c'
+//apply plugin: 'c'
 apply plugin: 'idea'
 apply plugin: 'application'
 
@@ -42,20 +42,20 @@ task runTrap(type: JavaExec) {
 
 //  native component
 
-model {
-    components {
-        scatter(NativeLibrarySpec)
-    }
-    toolChains {
-        visualCpp(VisualCpp) {
-            // Specify the installDir if Visual Studio cannot be located
-            // installDir "C:/Apps/Microsoft Visual Studio 10.0"
-             installDir "C:\\Program Files (x86)\\Microsoft Visual Studio 12.0"
-        }
-        gcc(Gcc) {
-            // Uncomment to use a GCC install that is not in the PATH
-            // path "/usr/bin/gcc"
-        }
-
-    }
-}
+//model {
+//    components {
+//        scatter(NativeLibrarySpec)
+//    }
+//    toolChains {
+//        visualCpp(VisualCpp) {
+//            // Specify the installDir if Visual Studio cannot be located
+//            // installDir "C:/Apps/Microsoft Visual Studio 10.0"
+//             installDir "C:\\Program Files (x86)\\Microsoft Visual Studio 12.0"
+//        }
+//        gcc(Gcc) {
+//            // Uncomment to use a GCC install that is not in the PATH
+//            // path "/usr/bin/gcc"
+//        }
+//
+//    }
+//}

@@ -20,14 +20,34 @@ public class SimulationManager {
 
     RandomGenerator generator = new JDKRandomGenerator();
     Simulator simulator = new Simulator();
+
     private double initialE = 18000;
+    private double range = 4000;
+
     private PrintStream output = System.out;
     private PrintStream statisticOutput = System.out;
+    private Predicate<Simulator.SimulationResult> reportFileter = (res) -> res.state == Simulator.EndState.ACCEPTED;
 
+//    public SimulationManager withParameters(double bSource, double bTransport, double bPinch, double initialE, double energyRange) {
+//        this.simulator = new Simulator(bSource, bTransport, bPinch, initialE - energyRange);
+//        this.initialE = initialE;
+//        return this;
+//    }
 
-    public SimulationManager withParameters(double bSource, double bTransport, double bPinch, double initialE, double energyRange) {
-        this.simulator = new Simulator(bSource, bTransport, bPinch, initialE - energyRange);
+    public SimulationManager withInitialE(double initialE){
         this.initialE = initialE;
+        simulator.setELow(initialE-range);
+        return this;
+    }
+
+    public SimulationManager withRange(double range){
+        this.range = range;
+        simulator.setELow(initialE-range);
+        return this;
+    }
+
+    public SimulationManager withFields(double bSource, double bTransport, double bPinch){
+        this.simulator.setFields(bSource,bTransport,bPinch);
         return this;
     }
 
@@ -63,6 +83,11 @@ public class SimulationManager {
         return this;
     }
 
+    public SimulationManager withReportFilter(Predicate<Simulator.SimulationResult> filter) {
+        this.reportFileter = filter;
+        return this;
+    }
+
     /**
      * Set field map as function
      *
@@ -93,7 +118,7 @@ public class SimulationManager {
      * @param density
      * @return
      */
-    public SimulationManager withDensity(double density) {
+    public SimulationManager withGasDensity(double density) {
         this.simulator.setGasDensity(density);
         return this;
     }
@@ -106,14 +131,13 @@ public class SimulationManager {
      */
     public synchronized Counter simulateAll(int num) {
         Counter counter = new Counter();
-        Predicate<Simulator.SimulationResult> reportIf = (res) -> res.state == Simulator.EndState.ACCEPTED;
         System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num);
         output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state");
         Stream.generate(() -> getRandomTheta()).limit(num).parallel()
                 .forEach((theta) -> {
                     double initZ = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH;
                     Simulator.SimulationResult res = simulator.simulate(initialE, theta, initZ);
-                    if (reportIf.test(res)) {
+                    if (reportFileter.test(res)) {
                         if (output != null) {
                             printOne(output, res);
                         }
