@@ -19,7 +19,7 @@ public class Trapping {
 //                .withFieldMap(z, b)
                 .withGasDensity(1e19) // per m^3
                 .withReportFilter(res -> true)
-                .simulateAll((int) 1e6);
+                .simulateAll((int) 1e4);
         Instant finishTime = Instant.now();
         System.out.printf("%nFinished at %s%n", finishTime.toString());
         System.out.printf("Calculation took %s%n", Duration.between(startTime, finishTime).toString());

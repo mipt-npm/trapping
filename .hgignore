@@ -1,9 +1,11 @@
+
 \.orig$
 \.orig\..*$
 \.chg\..*$
 \.rej$
 \.conflict\~$
-.gradle
+
+.gradle/
 build/
 .idea/*
 !gradle-wrapper.jar
