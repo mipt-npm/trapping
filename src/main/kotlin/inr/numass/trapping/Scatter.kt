@@ -8,9 +8,8 @@
  */
 package inr.numass.trapping
 
-import org.apache.commons.math3.random.JDKRandomGenerator
-import org.apache.commons.math3.util.FastMath.*
 import org.apache.commons.math3.random.RandomGenerator
+import org.apache.commons.math3.util.FastMath.*
 import org.apache.commons.math3.util.Pair
 
 
@@ -79,7 +78,7 @@ object Scatter {
         return Pair(2.0 * emass / H2molmass * (1.0 - c) * E, acos(c) * 180.0 / Math.PI)
     }
 
-    internal fun randomexc(E: Double, generator: RandomGenerator): Pair<Double, Double> {
+    fun randomexc(E: Double, generator: RandomGenerator): Pair<Double, Double> {
         // This subroutine generates  energy loss and polar scatt. angle according to
         // electron excitation scattering in molecular hydrogen.
         // Input:
@@ -274,7 +273,7 @@ object Scatter {
         return Pair(Eloss, theta)
     }
 
-    internal fun randomion(E: Double, generator: RandomGenerator): Pair<Double, Double> {
+    fun randomion(E: Double, generator: RandomGenerator): Pair<Double, Double> {
         // This subroutine generates  energy loss and polar scatt. angle according to
         // electron ionization scattering in molecular hydrogen.
         // Input:
@@ -457,7 +456,7 @@ object Scatter {
         return Pair(El * 27.2, theta)
     }
 
-    internal fun gensecelen(E: Double, generator: RandomGenerator): Double {
+    fun gensecelen(E: Double, generator: RandomGenerator): Double {
         // This subroutine generates secondary electron energy W
         // from ionization of incident electron energy E, by using
         // the Lorentzian of Aseev  et al. (Eq. 8).
@@ -481,7 +480,7 @@ object Scatter {
         return eps - Ei
     }
 
-    internal fun Del(E: Double, c: Double): Double {
+    fun Del(E: Double, c: Double): Double {
         // This subroutine computes the differential cross section
         // Del= d sigma/d Omega  of  elastic electron scattering
         // on molecular hydrogen.
@@ -565,7 +564,7 @@ object Scatter {
         return Delreturn
     }
 
-    internal fun Dexc(E: Double, c: Double): Double {
+    fun Dexc(E: Double, c: Double): Double {
         // This subroutine computes the differential cross section
         // Del= d sigma/d Omega  of excitation electron scattering
         // on molecular hydrogen.
@@ -612,7 +611,7 @@ object Scatter {
         return sigma
     }
 
-    internal fun Dinel(E: Double, c: Double): Double {
+    fun Dinel(E: Double, c: Double): Double {
         // This subroutine computes the differential cross section
         // Dinel= d sigma/d Omega  of  inelastic electron scattering
         // on molecular hydrogen, within the first Born approximation.
@@ -725,7 +724,7 @@ object Scatter {
         return sum
     }
 
-    internal fun lagrange(n: Int, xn: DoubleArray, fn: DoubleArray, x: Double): Double {
+    fun lagrange(n: Int, xn: DoubleArray, fn: DoubleArray, x: Double): Double {
         var i: Int
         var j: Int
         var f: Double = 0.0
@@ -757,7 +756,7 @@ object Scatter {
         return f
     }
 
-    internal fun sigmael(E: Double): Double {
+    fun sigmael(E: Double): Double {
         // This function computes the total elastic cross section of
         // electron scatt. on molecular hydrogen.
         // See: Liu, Phys. Rev. A35 (1987) 591,
@@ -785,7 +784,7 @@ object Scatter {
         return sigma
     }
 
-    internal fun sigmaexc(E: Double): Double {
+    fun sigmaexc(E: Double): Double {
         // This function computes the electronic excitation cross section of
         // electron scatt. on molecular hydrogen.
         // E: incident electron energy in eV,
@@ -802,7 +801,7 @@ object Scatter {
         return sigma
     }
 
-    internal fun sigmaion(E: Double): Double {
+    fun sigmaion(E: Double): Double {
         // This function computes the total ionization cross section of
         // electron scatt. on molecular hydrogen.
         // E: incident electron energy in eV,
@@ -840,7 +839,7 @@ object Scatter {
         return sigma
     }
 
-    internal fun sigmaBC(E: Double): Double {
+    fun sigmaBC(E: Double): Double {
         // This function computes the sigmaexc electronic excitation
         // cross section to the B and C states, with energy loss
         // about 12.5 eV.
@@ -890,7 +889,7 @@ object Scatter {
     }
 
     //////////////////////////////////////////////////////////////////
-    internal fun sigmadiss10(E: Double): Double {
+    fun sigmadiss10(E: Double): Double {
         // This function computes the sigmadiss10 electronic
         // dissociative excitation
         // cross section, with energy loss
@@ -919,7 +918,7 @@ object Scatter {
     }
 
     //////////////////////////////////////////////////////////////////
-    internal fun sigmadiss15(E: Double): Double {
+    fun sigmadiss15(E: Double): Double {
         // This function computes the sigmadiss15 electronic
         // dissociative excitation
         // cross section, with energy loss
@@ -931,13 +930,11 @@ object Scatter {
         val lnE: Double = log(E)
         var lnEn: Double
         val Emin: Double = 16.5
-        var sigma: Double
         var n: Int
         //  E is in eV
-        sigma = 0.0
         lnEn = 1.0
-        if (E < Emin) {
-            sigma = 0.0
+        val sigma = if (E < Emin) {
+            0.0
         } else {
             n = 0
             while (n <= 8) {
@@ -945,7 +942,7 @@ object Scatter {
                 lnEn *= lnE
                 n++
             }
-            sigma = exp(lnsigma)
+            exp(lnsigma)
         }
         return sigma * 1e-4
     }

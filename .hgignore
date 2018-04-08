@@ -4,6 +4,7 @@
 \.rej$
 \.conflict\~$
 .gradle/
+.ipynb_checkpoints
 build/
 .idea/*
 !gradle-wrapper.jar
