@@ -12,24 +12,25 @@ fun main(args: Array<String>) {
     //        System.out.println("Press any key to start...");
     //        System.in.read();
 
-    val es = listOf(12000.0, 14000.0,16000.0,18000.0)
+    val es = listOf(12000.0, 14000.0, 16000.0, 18000.0)
 
-    for(e in es) {
-        val startTime = Instant.now()
+    val startTime = Instant.now()
+    System.out.printf("Starting at %s%n%n", startTime.toString())
 
-        System.out.printf("Starting at %s%n%n", startTime.toString())
+    for (e in es) {
         SimulationManager().apply {
-            fileName = "trap[regular]"
-            generator = RandomSource.create(RandomSource.SPLIT_MIX_64)
+            comment = "Out of the box cross-sections"
+            fileName = "trap[$e]"
+            generator = RandomSource.create(RandomSource.MWC_256)
             setFields(0.6, 3.7, 7.2)
             gasDensity = 1e19
             initialE = e
             range = 4000.0
         }.simulateAll(1e6)
-
-        val finishTime = Instant.now()
-        System.out.printf("%nFinished at %s%n", finishTime.toString())
-        System.out.printf("Calculation took %s%n", Duration.between(startTime, finishTime).toString())
     }
+
+    val finishTime = Instant.now()
+    System.out.printf("%nFinished at %s%n", finishTime.toString())
+    System.out.printf("Calculation took %s%n", Duration.between(startTime, finishTime).toString())
 }
 

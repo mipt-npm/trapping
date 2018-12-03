@@ -1,6 +1,7 @@
 package inr.numass.trapping
 
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator
+import org.apache.commons.math3.random.SynchronizedRandomGenerator
 import org.apache.commons.rng.UniformRandomProvider
 import org.apache.commons.rng.simple.RandomSource
 import java.io.File
@@ -39,12 +40,6 @@ class SimulationManager() {
             eLow = initialE - value
         }
 
-
-    // from 0 to Pi
-    private fun getRandomTheta(): Double {
-        val x = generator.nextDouble()
-        return Math.acos(1 - 2 * x)
-    }
 
 //    fun setOutputFile(fileName: String) {
 //        val outputFile = File(fileName)
@@ -89,11 +84,11 @@ class SimulationManager() {
         if (!outputDirectory.exists()) {
             outputDirectory.mkdirs()
         }
-        val outputPath = outputDirectory.toPath().resolve("$fileName.out")
-        val output = PrintStream(Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))
+
+        val generator = SynchronizedRandomGenerator(RandomGeneratorBridge(generator))
+        val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField, generator)
 
         val counter = Counter()
-        val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField, RandomGeneratorBridge(generator))
 
         val header = """
                 E_init = $initialE;
@@ -101,27 +96,34 @@ class SimulationManager() {
                 theta_pinch = $thetaPinch;
                 theta_transport = $thetaTransport;
                 density = $gasDensity;
-            """.trimIndent() + comment
-
-        output.println(header.replace("\n", "\n# "))//adding comment symbols
+            """.trimIndent() + "\n\n" + comment
 
 
-        System.out.printf("%nStarting simulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
-        output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state")
-        Stream.generate { getRandomTheta() }.limit(num.toLong()).parallel()
-                .forEach { theta ->
-                    val initZ = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH
-                    val res = simulator.simulate(initialE, theta, initZ)
-                    if (reportFilter(res)) {
+        val outputPath = outputDirectory.toPath().resolve("$fileName.out")
+        PrintStream(Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)).use { output ->
+            output.println("# " + header.replace("\n", "\n# "))//adding comment symbols
+
+            System.out.printf("%nStarting simulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
+            output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state")
+            Stream
+                    .generate {
+                        val theta = Math.acos(1 - 2 * generator.nextDouble())// from 0 to Pi
+                        val z = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH
+                        simulator.simulate(initialE, theta, z).also { counter.count(it) }
+                    }
+                    .limit(num.toLong()).parallel()
+                    .filter(reportFilter)
+                    .forEach { res ->
                         printOne(output, res)
                     }
-                    counter.count(res)
-                }
+        }
 
         val statisticsPath = outputDirectory.toPath().resolve("$fileName.stat")
-        val statisticOutput = PrintStream(Files.newOutputStream(statisticsPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))
-        statisticOutput.println(header + "\n")
-        printStatistics(statisticOutput, simulator, counter)
+        PrintStream(Files.newOutputStream(statisticsPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)).use {
+            it.println(header + "\n")
+            printStatistics(it, simulator, counter)
+
+        }
         return counter
     }
 
@@ -147,6 +149,7 @@ class SimulationManager() {
 
     private fun printOne(out: PrintStream, res: Simulator.SimulationResult) {
         out.printf("%g\t%g\t%g\t%d\t%g\t%s%n", res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.l, res.state.toString())
+        out.flush()
     }
 
 
