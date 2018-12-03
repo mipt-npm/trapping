@@ -1,30 +1,25 @@
 package inr.numass.trapping
 
-import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator
-import org.apache.commons.math3.random.JDKRandomGenerator
-import org.apache.commons.math3.random.RandomGenerator
 import org.apache.commons.rng.UniformRandomProvider
 import org.apache.commons.rng.simple.RandomSource
-
-import java.io.*
+import java.io.File
+import java.io.PrintStream
+import java.nio.file.Files
+import java.nio.file.StandardOpenOption
 import java.util.stream.Stream
 
 /**
  * Created by darksnake on 04-Jun-16.
  */
-class SimulationManager {
+class SimulationManager() {
+
+    var outputDirectory: File = File("./output")
+    var fileName = "trap[test]"
+
+    var comment = ""
 
     var generator: UniformRandomProvider = RandomSource.create(RandomSource.SPLIT_MIX_64)
-
-    /**
-     *  output for accepted events
-     */
-    var output: PrintStream = System.out
-    /**
-     * output for statistics
-     */
-    var statisticOutput = System.out
     var reportFilter: (Simulator.SimulationResult) -> Boolean = { it.state == Simulator.EndState.ACCEPTED }
 
     var initialE = 18000.0
@@ -51,14 +46,14 @@ class SimulationManager {
         return Math.acos(1 - 2 * x)
     }
 
-    fun setOutputFile(fileName: String) {
-        val outputFile = File(fileName)
-        if (!outputFile.exists()) {
-            outputFile.parentFile.mkdirs()
-            outputFile.createNewFile()
-        }
-        this.output = PrintStream(FileOutputStream(outputFile))
-    }
+//    fun setOutputFile(fileName: String) {
+//        val outputFile = File(fileName)
+//        if (!outputFile.exists()) {
+//            outputFile.parentFile.mkdirs()
+//            outputFile.createNewFile()
+//        }
+//        this.output = PrintStream(FileOutputStream(outputFile))
+//    }
 
 
     fun withReportFilter(filter: (Simulator.SimulationResult) -> Boolean): SimulationManager {
@@ -91,10 +86,27 @@ class SimulationManager {
      */
     @Synchronized
     fun simulateAll(num: Number): Counter {
+        if (!outputDirectory.exists()) {
+            outputDirectory.mkdirs()
+        }
+        val outputPath = outputDirectory.toPath().resolve("$fileName.out")
+        val output = PrintStream(Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))
+
         val counter = Counter()
         val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField, RandomGeneratorBridge(generator))
 
-        System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
+        val header = """
+                E_init = $initialE;
+                E_low = $eLow;
+                theta_pinch = $thetaPinch;
+                theta_transport = $thetaTransport;
+                density = $gasDensity;
+            """.trimIndent() + comment
+
+        output.println(header.replace("\n", "\n# "))//adding comment symbols
+
+
+        System.out.printf("%nStarting simulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
         output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state")
         Stream.generate { getRandomTheta() }.limit(num.toLong()).parallel()
                 .forEach { theta ->
@@ -105,6 +117,10 @@ class SimulationManager {
                     }
                     counter.count(res)
                 }
+
+        val statisticsPath = outputDirectory.toPath().resolve("$fileName.stat")
+        val statisticOutput = PrintStream(Files.newOutputStream(statisticsPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))
+        statisticOutput.println(header + "\n")
         printStatistics(statisticOutput, simulator, counter)
         return counter
     }

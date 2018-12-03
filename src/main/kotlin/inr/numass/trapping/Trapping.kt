@@ -1,6 +1,7 @@
 package inr.numass.trapping
 
 import org.apache.commons.rng.simple.RandomSource
+import java.io.File
 import java.time.Duration
 import java.time.Instant
 
@@ -10,20 +11,25 @@ fun main(args: Array<String>) {
     //val b = doubleArrayOf(3.70754, 0.62786, 0.60474, 0.60325, 0.60333, 0.60503, 0.6285, 3.70478)
     //        System.out.println("Press any key to start...");
     //        System.in.read();
-    val startTime = Instant.now()
 
-    System.out.printf("Starting at %s%n%n", startTime.toString())
-    SimulationManager().apply {
-        generator = RandomSource.create(RandomSource.SPLIT_MIX_64)
-        setOutputFile("D:\\Work\\Numass\\trapping\\test1.out")
-        setFields(0.6, 3.7, 7.2)
-        gasDensity = 1e19
-        initialE = 14000.0
-        range = 4000.0
-    }.simulateAll(1e6)
+    val es = listOf(12000.0, 14000.0,16000.0,18000.0)
 
-    val finishTime = Instant.now()
-    System.out.printf("%nFinished at %s%n", finishTime.toString())
-    System.out.printf("Calculation took %s%n", Duration.between(startTime, finishTime).toString())
+    for(e in es) {
+        val startTime = Instant.now()
+
+        System.out.printf("Starting at %s%n%n", startTime.toString())
+        SimulationManager().apply {
+            fileName = "trap[regular]"
+            generator = RandomSource.create(RandomSource.SPLIT_MIX_64)
+            setFields(0.6, 3.7, 7.2)
+            gasDensity = 1e19
+            initialE = e
+            range = 4000.0
+        }.simulateAll(1e6)
+
+        val finishTime = Instant.now()
+        System.out.printf("%nFinished at %s%n", finishTime.toString())
+        System.out.printf("Calculation took %s%n", Duration.between(startTime, finishTime).toString())
+    }
 }
 

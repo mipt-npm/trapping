@@ -4,6 +4,8 @@
 \.rej$
 \.conflict\~$
 .gradle/
+output/
+notebooks/.ipynb_checkpoints
 .ipynb_checkpoints
 build/
 .idea/*
