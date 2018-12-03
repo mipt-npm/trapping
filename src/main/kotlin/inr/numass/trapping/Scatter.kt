@@ -407,7 +407,7 @@ object Scatter {
             while (i <= 30) {
                 G = 1.0 / 2.0 + (y + sin(2.0 * y) / 2.0) / Math.PI
                 Gp = (1.0 + cos(2.0 * y)) / Math.PI
-                y = y - (G - F) / Gp
+                y -= (G - F) / Gp
                 if (abs(G - F) < 1e-8) {
                     break
                 }
@@ -666,16 +666,23 @@ object Scatter {
         return Dinelreturn
     }
 
-    private fun sumexc(K: Double): Double {
+    private fun _sumexc(K: Double): Double {
         val Kvec = doubleArrayOf(0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0)
-        val fvec = arrayOf(doubleArrayOf(2.907e-1, 2.845e-1, 2.665e-1, 2.072e-1, 1.389e-1, // B
-                8.238e-2, 4.454e-2, 2.269e-2, 7.789e-3, 2.619e-3, 1.273e-3, 2.218e-4, 4.372e-5, 2.889e-6, 4.247e-7), doubleArrayOf(3.492e-1, 3.367e-1, 3.124e-1, 2.351e-1, 1.507e-1, // C
-                8.406e-2, 4.214e-2, 1.966e-2, 5.799e-3, 1.632e-3, 6.929e-4, 8.082e-5, 9.574e-6, 1.526e-7, 7.058e-9), doubleArrayOf(6.112e-2, 5.945e-2, 5.830e-2, 5.072e-2, 3.821e-2, // Bp
-                2.579e-2, 1.567e-2, 8.737e-3, 3.305e-3, 1.191e-3, 6.011e-4, 1.132e-4, 2.362e-5, 1.603e-6, 2.215e-7), doubleArrayOf(2.066e-2, 2.127e-2, 2.137e-2, 1.928e-2, 1.552e-2, // Bpp
-                1.108e-2, 7.058e-3, 4.069e-3, 1.590e-3, 5.900e-4, 3.046e-4, 6.142e-5, 1.369e-5, 9.650e-7, 1.244e-7), doubleArrayOf(9.405e-2, 9.049e-2, 8.613e-2, 7.301e-2, 5.144e-2, // D
-                3.201e-2, 1.775e-2, 8.952e-3, 2.855e-3, 8.429e-4, 3.655e-4, 4.389e-5, 5.252e-6, 9.010e-8, 7.130e-9), doubleArrayOf(4.273e-2, 3.862e-2, 3.985e-2, 3.362e-2, 2.486e-2, // Dp
-                1.612e-2, 9.309e-3, 4.856e-3, 1.602e-3, 4.811e-4, 2.096e-4, 2.498e-5, 2.905e-6, 5.077e-8, 6.583e-9), doubleArrayOf(0.000e-3, 2.042e-3, 7.439e-3, 2.200e-2, 3.164e-2, // EF
-                3.161e-2, 2.486e-2, 1.664e-2, 7.562e-3, 3.044e-3, 1.608e-3, 3.225e-4, 7.120e-5, 6.290e-6, 1.066e-6))
+        val fvec = arrayOf(
+                doubleArrayOf(2.907e-1, 2.845e-1, 2.665e-1, 2.072e-1, 1.389e-1,
+                        8.238e-2, 4.454e-2, 2.269e-2, 7.789e-3, 2.619e-3, 1.273e-3, 2.218e-4, 4.372e-5, 2.889e-6, 4.247e-7), // B
+                doubleArrayOf(3.492e-1, 3.367e-1, 3.124e-1, 2.351e-1, 1.507e-1,
+                        8.406e-2, 4.214e-2, 1.966e-2, 5.799e-3, 1.632e-3, 6.929e-4, 8.082e-5, 9.574e-6, 1.526e-7, 7.058e-9),  // C
+                doubleArrayOf(6.112e-2, 5.945e-2, 5.830e-2, 5.072e-2, 3.821e-2,
+                        2.579e-2, 1.567e-2, 8.737e-3, 3.305e-3, 1.191e-3, 6.011e-4, 1.132e-4, 2.362e-5, 1.603e-6, 2.215e-7), // Bp
+                doubleArrayOf(2.066e-2, 2.127e-2, 2.137e-2, 1.928e-2, 1.552e-2,
+                        1.108e-2, 7.058e-3, 4.069e-3, 1.590e-3, 5.900e-4, 3.046e-4, 6.142e-5, 1.369e-5, 9.650e-7, 1.244e-7), // Bpp
+                doubleArrayOf(9.405e-2, 9.049e-2, 8.613e-2, 7.301e-2, 5.144e-2,
+                        3.201e-2, 1.775e-2, 8.952e-3, 2.855e-3, 8.429e-4, 3.655e-4, 4.389e-5, 5.252e-6, 9.010e-8, 7.130e-9), // D
+                doubleArrayOf(4.273e-2, 3.862e-2, 3.985e-2, 3.362e-2, 2.486e-2,
+                        1.612e-2, 9.309e-3, 4.856e-3, 1.602e-3, 4.811e-4, 2.096e-4, 2.498e-5, 2.905e-6, 5.077e-8, 6.583e-9), // Dp
+                doubleArrayOf(0.000e-3, 2.042e-3, 7.439e-3, 2.200e-2, 3.164e-2,
+                        3.161e-2, 2.486e-2, 1.664e-2, 7.562e-3, 3.044e-3, 1.608e-3, 3.225e-4, 7.120e-5, 6.290e-6, 1.066e-6))// EF
         val EeV = doubleArrayOf(12.73, 13.20, 14.77, 15.3, 14.93, 15.4, 13.06)
         var n: Int = 0
         var j: Int
@@ -690,33 +697,32 @@ object Scatter {
         //
         while (n <= nmax) {
             En = EeV[n] / 27.21 // En is the excitation energy in Hartree atomic units
-            if (K >= 5.0) {
-                f[n] = 0.0
-            } else if (K >= 3.0 && K <= 4.0) {
-                f[n] = fvec[n][12] + (K - 3.0) * (fvec[n][13] - fvec[n][12])
-            } else if (K >= 4.0 && K <= 5.0) {
-                f[n] = fvec[n][13] + (K - 4.0) * (fvec[n][14] - fvec[n][13])
-            } else {
-                j = 0
-                while (j < 14) {
-                    if (K >= Kvec[j] && K <= Kvec[j + 1]) {
-                        jmin = j - 1
+            when {
+                K >= 5.0 -> f[n] = 0.0
+                K in 3.0..4.0 -> f[n] = fvec[n][12] + (K - 3.0) * (fvec[n][13] - fvec[n][12])
+                K in 4.0..5.0 -> f[n] = fvec[n][13] + (K - 4.0) * (fvec[n][14] - fvec[n][13])
+                else -> {
+                    j = 0
+                    while (j < 14) {
+                        if (K >= Kvec[j] && K <= Kvec[j + 1]) {
+                            jmin = j - 1
+                        }
+                        j++
                     }
-                    j++
+                    if (jmin < 0) {
+                        jmin = 0
+                    }
+                    if (jmin > 11) {
+                        jmin = 11
+                    }
+                    j = 0
+                    while (j <= 3) {
+                        x4[j] = Kvec[jmin + j]
+                        f4[j] = fvec[n][jmin + j]
+                        j++
+                    }
+                    f[n] = lagrange(4, x4, f4, K)
                 }
-                if (jmin < 0) {
-                    jmin = 0
-                }
-                if (jmin > 11) {
-                    jmin = 11
-                }
-                j = 0
-                while (j <= 3) {
-                    x4[j] = Kvec[jmin + j]
-                    f4[j] = fvec[n][jmin + j]
-                    j++
-                }
-                f[n] = lagrange(4, x4, f4, K)
             }
             sum += f[n] / En
             n++
@@ -724,15 +730,18 @@ object Scatter {
         return sum
     }
 
+    //Caching function for precision
+    private val sumexcCache = FunctionCache(0.01, this::_sumexc)
+    private fun sumexc(K: Double): Double = sumexcCache(K)
+
     fun lagrange(n: Int, xn: DoubleArray, fn: DoubleArray, x: Double): Double {
         var i: Int
-        var j: Int
+        var j: Int = 0
         var f: Double = 0.0
         var aa: Double
         var bb: Double
         val a = DoubleArray(100)
         val b = DoubleArray(100)
-        j = 0
         while (j < n) {
             i = 0
             while (i < n) {

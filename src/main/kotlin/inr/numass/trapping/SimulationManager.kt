@@ -4,6 +4,8 @@ import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator
 import org.apache.commons.math3.random.JDKRandomGenerator
 import org.apache.commons.math3.random.RandomGenerator
+import org.apache.commons.rng.UniformRandomProvider
+import org.apache.commons.rng.simple.RandomSource
 
 import java.io.*
 import java.util.stream.Stream
@@ -13,7 +15,7 @@ import java.util.stream.Stream
  */
 class SimulationManager {
 
-    var generator: RandomGenerator = JDKRandomGenerator()
+    var generator: UniformRandomProvider = RandomSource.create(RandomSource.SPLIT_MIX_64)
 
     /**
      *  output for accepted events
@@ -88,11 +90,11 @@ class SimulationManager {
      * @return
      */
     @Synchronized
-    fun simulateAll(num: Int): Counter {
+    fun simulateAll(num: Number): Counter {
         val counter = Counter()
-        val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField, generator)
+        val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField, RandomGeneratorBridge(generator))
 
-        System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num)
+        System.out.printf("%nStarting sumulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
         output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state")
         Stream.generate { getRandomTheta() }.limit(num.toLong()).parallel()
                 .forEach { theta ->

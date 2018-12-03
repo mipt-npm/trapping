@@ -1,5 +1,6 @@
 package inr.numass.trapping
 
+import org.apache.commons.rng.simple.RandomSource
 import java.time.Duration
 import java.time.Instant
 
@@ -13,11 +14,13 @@ fun main(args: Array<String>) {
 
     System.out.printf("Starting at %s%n%n", startTime.toString())
     SimulationManager().apply {
+        generator = RandomSource.create(RandomSource.SPLIT_MIX_64)
         setOutputFile("D:\\Work\\Numass\\trapping\\test1.out")
         setFields(0.6, 3.7, 7.2)
         gasDensity = 1e19
-        reportFilter = {true}
-    }.simulateAll(1e5.toInt())
+        initialE = 14000.0
+        range = 4000.0
+    }.simulateAll(1e6)
 
     val finishTime = Instant.now()
     System.out.printf("%nFinished at %s%n", finishTime.toString())
