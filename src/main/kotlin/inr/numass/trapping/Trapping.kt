@@ -26,7 +26,7 @@ fun main(args: Array<String>) {
             gasDensity = 1e19
             initialE = e
             range = 4000.0
-        }.simulateAll(1e6)
+        }.simulateAll(1e7)
     }
 
     val finishTime = Instant.now()

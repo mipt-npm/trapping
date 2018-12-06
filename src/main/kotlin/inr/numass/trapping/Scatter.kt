@@ -24,9 +24,6 @@ var counter = MultiCounter("Accept-reject calls")
  * @author Darksnake
  */
 object Scatter {
-
-    private var fmax = 0.0
-
     private val a02 = 28e-22 // Bohr radius squared
     private val clight = 137.0 // velocity of light in atomic units
     private val emass = 18780.0 // Electron mass in atomic units
@@ -69,7 +66,7 @@ object Scatter {
             c = 1.0 + b - b * (2.0 + b) / (b + 2.0 * generator.nextDouble())
             K2 = 2.0 * T * (1.0 + gam) * abs(1.0 - c) // momentum transfer squared
             a = (4.0 + K2) * (4.0 + K2) / (gam * gam)
-            G = a * Del(E, c)
+            G = a * dElastic(E, c)
             if (G > Gmax * generator.nextDouble()) {
                 break
             }
@@ -77,6 +74,54 @@ object Scatter {
         }
         return Pair(2.0 * emass / H2molmass * (1.0 - c) * E, acos(c) * 180.0 / Math.PI)
     }
+
+
+    // Energy values of the excited electronic states:
+    //  (from Mol. Phys. 41 (1980) 1501, in Hartree atomic units)
+    private val En = doubleArrayOf(12.73 / 27.2, 13.2 / 27.2, 14.77 / 27.2, 15.3 / 27.2, 14.93 / 27.2, 15.4 / 27.2, 13.06 / 27.2)
+    // Probability numbers of the electronic states:
+    //  (from testelectron7.c calculation )
+    private val p = doubleArrayOf(35.86, 40.05, 6.58, 2.26, 9.61, 4.08, 1.54)
+    // Energy values of the B vibrational states:
+    //   (from: Phys. Rev. A51 (1995) 3745 , in Hartree atomic units)
+    private val EB = doubleArrayOf(0.411, 0.417, 0.423, 0.428, 0.434, 0.439, 0.444, 0.449, 0.454, 0.459, 0.464, 0.468, 0.473, 0.477, 0.481, 0.485, 0.489, 0.493, 0.496, 0.500, 0.503, 0.507, 0.510, 0.513, 0.516, 0.519, 0.521, 0.524)
+    // Energy values of the C vibrational states:
+    //   (from: Phys. Rev. A51 (1995) 3745 , in Hartree atomic units)
+    private val EC = doubleArrayOf(0.452, 0.462, 0.472, 0.481, 0.490, 0.498, 0.506, 0.513, 0.519, 0.525, 0.530, 0.534, 0.537, 0.539)
+    // Franck-Condon factors of the B vibrational states:
+    //   (from: Phys. Rev. A51 (1995) 3745 )
+    private val pB = doubleArrayOf(4.2e-3, 1.5e-2, 3.0e-2, 4.7e-2, 6.3e-2, 7.3e-2, 7.9e-2, 8.0e-2, 7.8e-2, 7.3e-2, 6.6e-2, 5.8e-2, 5.1e-2, 4.4e-2, 3.7e-2, 3.1e-2, 2.6e-2, 2.2e-2, 1.8e-2, 1.5e-2, 1.3e-2, 1.1e-2, 8.9e-3, 7.4e-3, 6.2e-3, 5.2e-3, 4.3e-3, 3.6e-3)
+    // Franck-Condon factors of the C vibrational states:
+    //   (from: Phys. Rev. A51 (1995) 3745 )
+    private val pC = doubleArrayOf(1.2e-1, 1.9e-1, 1.9e-1, 1.5e-1, 1.1e-1, 7.5e-2, 5.0e-2, 3.3e-2, 2.2e-2, 1.4e-2, 9.3e-3, 6.0e-3, 3.7e-3, 1.8e-3)
+
+    private val Ecen = 12.6 / 27.21
+
+    private val fmax by lazy {
+        val sum = DoubleArray(1001)
+
+        val T: Double = 20000.0 / 27.2
+        val xmin = Ecen * Ecen / (2.0 * T)
+        val ymin = log(xmin)
+        val ymax = log(8.0 * T + xmin)
+        val dy = (ymax - ymin) / 1000.0
+
+
+        var res = 0.0
+        var i = 0
+        while (i <= 1000) {
+            val y = ymin + dy * i
+            val K = exp(y / 2.0)
+            sum[i] = sumexc(K)
+            if (sum[i] > res) {
+                res = sum[i]
+            }
+            i++
+        }
+        res *= 1.05
+        res
+    }
+
 
     fun randomexc(E: Double, generator: RandomGenerator): Pair<Double, Double> {
         // This subroutine generates  energy loss and polar scatt. angle according to
@@ -87,67 +132,21 @@ object Scatter {
         //   *Eloss: energy loss in eV
         //   *theta: change of polar angle in degrees
 
-        val Ecen = 12.6 / 27.21
-        val sum = DoubleArray(1001)
+
+        //val sum = DoubleArray(1001)
         var T: Double = 20000.0 / 27.2
         var c = 0.0
         var K: Double
-        var xmin: Double
-        var ymin: Double
-        var ymax: Double
-        val x: Double
         var y: Double
         var fy: Double
-        val dy: Double
         var pmax: Double
         var D: Double
-        val Dmax: Double
-        var i: Int
         var j: Int
         var n = 0
         var N: Int
         var v = 0
-        // Energy values of the excited electronic states:
-        //  (from Mol. Phys. 41 (1980) 1501, in Hartree atomic units)
-        val En = doubleArrayOf(12.73 / 27.2, 13.2 / 27.2, 14.77 / 27.2, 15.3 / 27.2, 14.93 / 27.2, 15.4 / 27.2, 13.06 / 27.2)
-        // Probability numbers of the electronic states:
-        //  (from testelectron7.c calculation )
-        val p = doubleArrayOf(35.86, 40.05, 6.58, 2.26, 9.61, 4.08, 1.54)
-        // Energy values of the B vibrational states:
-        //   (from: Phys. Rev. A51 (1995) 3745 , in Hartree atomic units)
-        val EB = doubleArrayOf(0.411, 0.417, 0.423, 0.428, 0.434, 0.439, 0.444, 0.449, 0.454, 0.459, 0.464, 0.468, 0.473, 0.477, 0.481, 0.485, 0.489, 0.493, 0.496, 0.500, 0.503, 0.507, 0.510, 0.513, 0.516, 0.519, 0.521, 0.524)
-        // Energy values of the C vibrational states:
-        //   (from: Phys. Rev. A51 (1995) 3745 , in Hartree atomic units)
-        val EC = doubleArrayOf(0.452, 0.462, 0.472, 0.481, 0.490, 0.498, 0.506, 0.513, 0.519, 0.525, 0.530, 0.534, 0.537, 0.539)
-        // Franck-Condon factors of the B vibrational states:
-        //   (from: Phys. Rev. A51 (1995) 3745 )
-        val pB = doubleArrayOf(4.2e-3, 1.5e-2, 3.0e-2, 4.7e-2, 6.3e-2, 7.3e-2, 7.9e-2, 8.0e-2, 7.8e-2, 7.3e-2, 6.6e-2, 5.8e-2, 5.1e-2, 4.4e-2, 3.7e-2, 3.1e-2, 2.6e-2, 2.2e-2, 1.8e-2, 1.5e-2, 1.3e-2, 1.1e-2, 8.9e-3, 7.4e-3, 6.2e-3, 5.2e-3, 4.3e-3, 3.6e-3)
-        // Franck-Condon factors of the C vibrational states:
-        //   (from: Phys. Rev. A51 (1995) 3745 )
-        val pC = doubleArrayOf(1.2e-1, 1.9e-1, 1.9e-1, 1.5e-1, 1.1e-1, 7.5e-2, 5.0e-2, 3.3e-2, 2.2e-2, 1.4e-2, 9.3e-3, 6.0e-3, 3.7e-3, 1.8e-3)
-        count("randomexc-calls")
-        //
-        xmin = Ecen * Ecen / (2.0 * T)
-        ymin = log(xmin)
-        ymax = log(8.0 * T + xmin)
-        dy = (ymax - ymin) / 1000.0
 
-        // Initialization of the sum[] vector, and fmax calculation:
-        synchronized(this) {
-            if (fmax == 0.0) {
-                i = 0
-                while (i <= 1000) {
-                    y = ymin + dy * i
-                    K = exp(y / 2.0)
-                    sum[i] = sumexc(K)
-                    if (sum[i] > fmax) {
-                        fmax = sum[i]
-                    }
-                    i++
-                }
-                fmax *= 1.05
-            }
-        }
+        count("randomexc-calls")
 
         //
         //  Scattering angle *theta generation:
@@ -155,9 +154,9 @@ object Scatter {
         T = E / 27.2
         val theta: Double
         if (E >= 100.0) {
-            xmin = Ecen * Ecen / (2.0 * T)
-            ymin = log(xmin)
-            ymax = log(8.0 * T + xmin)
+            val xmin = Ecen * Ecen / (2.0 * T)
+            val ymin = log(xmin)
+            val ymax = log(8.0 * T + xmin)
             //            dy = (ymax - ymin) / 1000.;
             // Generation of y values with the Neumann acceptance-rejection method:
             y = ymin
@@ -173,11 +172,11 @@ object Scatter {
                 j++
             }
             // Calculation of c=cos(theta) and theta:
-            x = exp(y)
+            val x = exp(y)
             c = 1.0 - (x - xmin) / (4.0 * T)
             theta = acos(c) * 180.0 / Math.PI
         } else {
-            Dmax = when {
+            val Dmax = when {
                 E <= 25.0 -> 60.0
                 E > 25.0 && E <= 35.0 -> 95.0
                 E > 35.0 && E <= 50.0 -> 150.0
@@ -188,7 +187,7 @@ object Scatter {
             while (j < 5000) {
                 count("randomexc2")
                 c = -1.0 + 2.0 * generator.nextDouble()
-                D = Dexc(E, c) * 1e22
+                D = dExcitation(E, c) * 1e22
                 if (Dmax * generator.nextDouble() < D) {
                     break
                 }
@@ -210,15 +209,18 @@ object Scatter {
                 break
             }
             j++
-        }
-        if (n < 0) {
-            n = 0
-        }
-        if (n > 6) {
-            n = 6
-        }
-        if (n > 1) {
-
+        }// Bp, Bpp, D, Dp, EF states
+        // C state; we generate now a vibrational state,
+        // using the Franck-Condon factors
+        // the number of C vibrational states in our calculation
+        // maximum of the pC[] values
+        // B state; we generate now a vibrational state,
+        // using the Frank-Condon factors
+        // the number of B vibrational states in our calculation
+        // maximum of the pB[] values
+        when {
+            n < 0 -> n = 0
+            n > 6 -> n = 6
         }
         val Eloss: Double
         when (n) {
@@ -344,7 +346,7 @@ object Scatter {
             y = ymin + (ymax - ymin) * generator.nextDouble()
             K = exp(y / 2.0)
             c = 1.0 + b - K * K / (4.0 * T)
-            G = K * K * (Dinel(E, c) - Dexc(E, c))
+            G = K * K * (dInelastic(E, c) - dExcitation(E, c))
             if (Gmax * generator.nextDouble() < G) {
                 break
             }
@@ -456,7 +458,7 @@ object Scatter {
         return Pair(El * 27.2, theta)
     }
 
-    fun gensecelen(E: Double, generator: RandomGenerator): Double {
+    private fun gensecelen(E: Double, generator: RandomGenerator): Double {
         // This subroutine generates secondary electron energy W
         // from ionization of incident electron energy E, by using
         // the Lorentzian of Aseev  et al. (Eq. 8).
@@ -480,18 +482,31 @@ object Scatter {
         return eps - Ei
     }
 
-    fun Del(E: Double, c: Double): Double {
-        // This subroutine computes the differential cross section
-        // Del= d sigma/d Omega  of  elastic electron scattering
-        // on molecular hydrogen.
-        // See: Nishimura et al., J. Phys. Soc. Jpn. 54 (1985) 1757.
-        // Input:  E= electron kinetic energy in eV
-        //         c= cos(theta), where theta is the polar scatt. angle
-        // Del: in m^2/steradian
-        val Cel = doubleArrayOf(-0.512, -0.512, -0.509, -0.505, -0.499, -0.491, -0.476, -0.473, -0.462, -0.452, -0.438, -0.422, -0.406, -0.388, -0.370, -0.352, -0.333, -0.314, -0.296, -0.277, -0.258, -0.239, -0.221, -0.202, -0.185, -0.167, -0.151, -0.135, -0.120, -0.105, -0.092, -0.070, -0.053, -0.039, -0.030, -0.024, -0.019, -0.016, -0.014, -0.013, -0.012, -0.009, -0.008, -0.006, -0.005, -0.004, -0.003, -0.002, -0.002, -0.001)
-        val e = doubleArrayOf(0.0, 3.0, 6.0, 12.0, 20.0, 32.0, 55.0, 85.0, 150.0, 250.0)
-        val t = doubleArrayOf(0.0, 10.0, 20.0, 30.0, 40.0, 60.0, 80.0, 100.0, 140.0, 180.0)
-        val D = arrayOf(doubleArrayOf(2.9, 2.7, 2.5, 2.1, 1.8, 1.2, 0.9, 1.0, 1.6, 1.9), doubleArrayOf(4.2, 3.6, 3.1, 2.5, 1.9, 1.1, 0.8, 0.9, 1.3, 1.4), doubleArrayOf(6.0, 4.4, 3.2, 2.3, 1.8, 1.1, 0.7, 0.54, 0.5, 0.6), doubleArrayOf(6.0, 4.1, 2.8, 1.9, 1.3, 0.6, 0.3, 0.17, 0.16, 0.23), doubleArrayOf(4.9, 3.2, 2.0, 1.2, 0.8, 0.3, 0.15, 0.09, 0.05, 0.05), doubleArrayOf(5.2, 2.5, 1.2, 0.64, 0.36, 0.13, 0.05, 0.03, 0.016, 0.02), doubleArrayOf(4.0, 1.7, 0.7, 0.3, 0.16, 0.05, 0.02, 0.013, 0.01, 0.01), doubleArrayOf(2.8, 1.1, 0.4, 0.15, 0.07, 0.02, 0.01, 0.007, 0.004, 0.003), doubleArrayOf(1.2, 0.53, 0.2, 0.08, 0.03, 0.0074, 0.003, 0.0016, 0.001, 0.0008))
+
+    // This subroutine computes the differential cross section
+    // dElastic= d sigma/d Omega  of  elastic electron scattering
+    // on molecular hydrogen.
+    // See: Nishimura et al., J. Phys. Soc. Jpn. 54 (1985) 1757.
+    // Input:  E= electron kinetic energy in eV
+    //         c= cos(theta), where theta is the polar scatt. angle
+    // dElastic: in m^2/steradian
+    private val elasticCel = doubleArrayOf(-0.512, -0.512, -0.509, -0.505, -0.499, -0.491, -0.476, -0.473, -0.462, -0.452, -0.438, -0.422, -0.406, -0.388, -0.370, -0.352, -0.333, -0.314, -0.296, -0.277, -0.258, -0.239, -0.221, -0.202, -0.185, -0.167, -0.151, -0.135, -0.120, -0.105, -0.092, -0.070, -0.053, -0.039, -0.030, -0.024, -0.019, -0.016, -0.014, -0.013, -0.012, -0.009, -0.008, -0.006, -0.005, -0.004, -0.003, -0.002, -0.002, -0.001)
+    private val elasticE = doubleArrayOf(0.0, 3.0, 6.0, 12.0, 20.0, 32.0, 55.0, 85.0, 150.0, 250.0)
+    private val elasticT = doubleArrayOf(0.0, 10.0, 20.0, 30.0, 40.0, 60.0, 80.0, 100.0, 140.0, 180.0)
+    private val elasticD = arrayOf(
+            doubleArrayOf(2.9, 2.7, 2.5, 2.1, 1.8, 1.2, 0.9, 1.0, 1.6, 1.9),
+            doubleArrayOf(4.2, 3.6, 3.1, 2.5, 1.9, 1.1, 0.8, 0.9, 1.3, 1.4),
+            doubleArrayOf(6.0, 4.4, 3.2, 2.3, 1.8, 1.1, 0.7, 0.54, 0.5, 0.6),
+            doubleArrayOf(6.0, 4.1, 2.8, 1.9, 1.3, 0.6, 0.3, 0.17, 0.16, 0.23),
+            doubleArrayOf(4.9, 3.2, 2.0, 1.2, 0.8, 0.3, 0.15, 0.09, 0.05, 0.05),
+            doubleArrayOf(5.2, 2.5, 1.2, 0.64, 0.36, 0.13, 0.05, 0.03, 0.016, 0.02),
+            doubleArrayOf(4.0, 1.7, 0.7, 0.3, 0.16, 0.05, 0.02, 0.013, 0.01, 0.01),
+            doubleArrayOf(2.8, 1.1, 0.4, 0.15, 0.07, 0.02, 0.01, 0.007, 0.004, 0.003),
+            doubleArrayOf(1.2, 0.53, 0.2, 0.08, 0.03, 0.0074, 0.003, 0.0016, 0.001, 0.0008)
+    )
+
+
+    private fun dElastic(E: Double, c: Double): Double {
         val T: Double = E / 27.2
         var K2: Double
         var K: Double
@@ -530,17 +545,17 @@ object Scatter {
                 K < 3.0 -> {
                     i = (K / 0.1).toInt()
                     Ki = i * 0.1
-                    CelK = Cel[i] + (K - Ki) / 0.1 * (Cel[i + 1] - Cel[i])
+                    CelK = elasticCel[i] + (K - Ki) / 0.1 * (elasticCel[i + 1] - elasticCel[i])
                 }
                 K >= 3.0 && K < 5.0 -> {
                     i = (30 + (K - 3.0) / 0.2).toInt()
                     Ki = 3.0 + (i - 30) * 0.2
-                    CelK = Cel[i] + (K - Ki) / 0.2 * (Cel[i + 1] - Cel[i])
+                    CelK = elasticCel[i] + (K - Ki) / 0.2 * (elasticCel[i + 1] - elasticCel[i])
                 }
                 K >= 5.0 && K < 9.49 -> {
                     i = (40 + (K - 5.0) / 0.5).toInt()
                     Ki = 5.0 + (i - 40) * 0.5
-                    CelK = Cel[i] + (K - Ki) / 0.5 * (Cel[i + 1] - Cel[i])
+                    CelK = elasticCel[i] + (K - Ki) / 0.5 * (elasticCel[i + 1] - elasticCel[i])
                 }
                 else -> CelK = 0.0
             }
@@ -549,11 +564,11 @@ object Scatter {
             theta = acos(c) * 180.0 / Math.PI
             i = 0
             while (i <= 8) {
-                if (E >= e[i] && E < e[i + 1]) {
+                if (E >= elasticE[i] && E < elasticE[i + 1]) {
                     j = 0
                     while (j <= 8) {
-                        if (theta >= t[j] && theta < t[j + 1]) {
-                            Delreturn = 1e-20 * (D[i][j] + (D[i][j + 1] - D[i][j]) * (theta - t[j]) / (t[j + 1] - t[j]))
+                        if (theta >= elasticT[j] && theta < elasticT[j + 1]) {
+                            Delreturn = 1e-20 * (elasticD[i][j] + (elasticD[i][j + 1] - elasticD[i][j]) * (theta - elasticT[j]) / (elasticT[j + 1] - elasticT[j]))
                         }
                         j++
                     }
@@ -564,27 +579,29 @@ object Scatter {
         return Delreturn
     }
 
-    fun Dexc(E: Double, c: Double): Double {
+    private val excEE = 12.6 / 27.2
+    private val excitationE = doubleArrayOf(0.0, 25.0, 35.0, 50.0, 100.0)
+    private val excitationT = doubleArrayOf(0.0, 10.0, 20.0, 30.0, 40.0, 60.0, 80.0, 100.0, 180.0)
+    private val excitationD = arrayOf(doubleArrayOf(60.0, 43.0, 27.0, 18.0, 13.0, 8.0, 6.0, 6.0, 6.0), doubleArrayOf(95.0, 70.0, 21.0, 9.0, 6.0, 3.0, 2.0, 2.0, 2.0), doubleArrayOf(150.0, 120.0, 32.0, 8.0, 3.7, 1.9, 1.2, 0.8, 0.8), doubleArrayOf(400.0, 200.0, 12.0, 2.0, 1.4, 0.7, 0.3, 0.2, 0.2))
+
+
+    private fun dExcitation(E: Double, c: Double): Double {
         // This subroutine computes the differential cross section
-        // Del= d sigma/d Omega  of excitation electron scattering
+        // dElastic= d sigma/d Omega  of excitation electron scattering
         // on molecular hydrogen.
         // Input:  E= electron kinetic energy in eV
         //         c= cos(theta), where theta is the polar scatt. angle
-        // Dexc: in m^2/steradian
+        // dExcitation: in m^2/steradian
         var K2: Double
         val K: Double
         var sigma = 0.0
         val T: Double = E / 27.2
         val theta: Double
-        val EE = 12.6 / 27.2
-        val e = doubleArrayOf(0.0, 25.0, 35.0, 50.0, 100.0)
-        val t = doubleArrayOf(0.0, 10.0, 20.0, 30.0, 40.0, 60.0, 80.0, 100.0, 180.0)
-        val D = arrayOf(doubleArrayOf(60.0, 43.0, 27.0, 18.0, 13.0, 8.0, 6.0, 6.0, 6.0), doubleArrayOf(95.0, 70.0, 21.0, 9.0, 6.0, 3.0, 2.0, 2.0, 2.0), doubleArrayOf(150.0, 120.0, 32.0, 8.0, 3.7, 1.9, 1.2, 0.8, 0.8), doubleArrayOf(400.0, 200.0, 12.0, 2.0, 1.4, 0.7, 0.3, 0.2, 0.2))
         var i: Int
         var j: Int
         //
         if (E >= 100.0) {
-            K2 = 4.0 * T * (1.0 - EE / (2.0 * T) - sqrt(1.0 - EE / T) * c)
+            K2 = 4.0 * T * (1.0 - excEE / (2.0 * T) - sqrt(1.0 - excEE / T) * c)
             if (K2 < 1e-9) {
                 K2 = 1e-9
             }
@@ -596,11 +613,11 @@ object Scatter {
             theta = acos(c) * 180.0 / Math.PI
             i = 0
             while (i <= 3) {
-                if (E >= e[i] && E < e[i + 1]) {
+                if (E >= excitationE[i] && E < excitationE[i + 1]) {
                     j = 0
                     while (j <= 7) {
-                        if (theta >= t[j] && theta < t[j + 1]) {
-                            sigma = 1e-22 * (D[i][j] + (D[i][j + 1] - D[i][j]) * (theta - t[j]) / (t[j + 1] - t[j]))
+                        if (theta >= excitationT[j] && theta < excitationT[j + 1]) {
+                            sigma = 1e-22 * (excitationD[i][j] + (excitationD[i][j + 1] - excitationD[i][j]) * (theta - excitationT[j]) / (excitationT[j + 1] - excitationT[j]))
                         }
                         j++
                     }
@@ -611,15 +628,17 @@ object Scatter {
         return sigma
     }
 
-    fun Dinel(E: Double, c: Double): Double {
-        // This subroutine computes the differential cross section
-        // Dinel= d sigma/d Omega  of  inelastic electron scattering
-        // on molecular hydrogen, within the first Born approximation.
-        // Input:  E= electron kinetic energy in eV
-        //         c= cos(theta), where theta is the polar scatt. angle
-        // Dinel: in m2/steradian
-        val Cinel = doubleArrayOf(-0.246, -0.244, -0.239, -0.234, -0.227, -0.219, -0.211, -0.201, -0.190, -0.179, -0.167, -0.155, -0.142, -0.130, -0.118, -0.107, -0.096, -0.085, -0.076, -0.067, -0.059, -0.051, -0.045, -0.039, -0.034, -0.029, -0.025, -0.022, -0.019, -0.016, -0.014, -0.010, -0.008, -0.006, -0.004, -0.003, -0.003, -0.002, -0.002, -0.001, -0.001, -0.001, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000)
-        val Ei = 0.568
+    // This subroutine computes the differential cross section
+    // dInelastic= d sigma/d Omega  of  inelastic electron scattering
+    // on molecular hydrogen, within the first Born approximation.
+    // Input:  E= electron kinetic energy in eV
+    //         c= cos(theta), where theta is the polar scatt. angle
+    // dInelastic: in m2/steradian
+    private val cInelastic = doubleArrayOf(-0.246, -0.244, -0.239, -0.234, -0.227, -0.219, -0.211, -0.201, -0.190, -0.179, -0.167, -0.155, -0.142, -0.130, -0.118, -0.107, -0.096, -0.085, -0.076, -0.067, -0.059, -0.051, -0.045, -0.039, -0.034, -0.029, -0.025, -0.022, -0.019, -0.016, -0.014, -0.010, -0.008, -0.006, -0.004, -0.003, -0.003, -0.002, -0.002, -0.001, -0.001, -0.001, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000)
+    private val inelasticEi = 0.568
+
+
+    private fun dInelastic(E: Double, c: Double): Double {
         val T: Double = E / 27.2
         var K2: Double
         val K: Double
@@ -631,9 +650,9 @@ object Scatter {
         val Ki: Double
         val i: Int
         if (E < 16.0) {
-            return Dexc(E, c)
+            return dExcitation(E, c)
         }
-        K2 = 4.0 * T * (1.0 - Ei / (2.0 * T) - sqrt(1.0 - Ei / T) * c)
+        K2 = 4.0 * T * (1.0 - inelasticEi / (2.0 * T) - sqrt(1.0 - inelasticEi / T) * c)
         if (K2 < 1e-9) {
             K2 = 1e-9
         }
@@ -650,15 +669,15 @@ object Scatter {
         if (K < 3.0) {
             i = (K / 0.1).toInt()
             Ki = i * 0.1
-            CinelK = Cinel[i] + (K - Ki) / 0.1 * (Cinel[i + 1] - Cinel[i])
+            CinelK = cInelastic[i] + (K - Ki) / 0.1 * (cInelastic[i + 1] - cInelastic[i])
         } else if (K >= 3.0 && K < 5.0) {
             i = (30 + (K - 3.0) / 0.2).toInt()
             Ki = 3.0 + (i - 30) * 0.2
-            CinelK = Cinel[i] + (K - Ki) / 0.2 * (Cinel[i + 1] - Cinel[i])
+            CinelK = cInelastic[i] + (K - Ki) / 0.2 * (cInelastic[i + 1] - cInelastic[i])
         } else if (K >= 5.0 && K < 9.49) {
             i = (40 + (K - 5.0) / 0.5).toInt()
             Ki = 5.0 + (i - 40) * 0.5
-            CinelK = Cinel[i] + (K - Ki) / 0.5 * (Cinel[i + 1] - Cinel[i])
+            CinelK = cInelastic[i] + (K - Ki) / 0.5 * (cInelastic[i + 1] - cInelastic[i])
         } else {
             CinelK = 0.0
         }
@@ -666,24 +685,26 @@ object Scatter {
         return Dinelreturn
     }
 
+
+    private val sumexcKvec = doubleArrayOf(0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0)
+    private val sumexcfvec = arrayOf(
+            doubleArrayOf(2.907e-1, 2.845e-1, 2.665e-1, 2.072e-1, 1.389e-1,
+                    8.238e-2, 4.454e-2, 2.269e-2, 7.789e-3, 2.619e-3, 1.273e-3, 2.218e-4, 4.372e-5, 2.889e-6, 4.247e-7), // B
+            doubleArrayOf(3.492e-1, 3.367e-1, 3.124e-1, 2.351e-1, 1.507e-1,
+                    8.406e-2, 4.214e-2, 1.966e-2, 5.799e-3, 1.632e-3, 6.929e-4, 8.082e-5, 9.574e-6, 1.526e-7, 7.058e-9),  // C
+            doubleArrayOf(6.112e-2, 5.945e-2, 5.830e-2, 5.072e-2, 3.821e-2,
+                    2.579e-2, 1.567e-2, 8.737e-3, 3.305e-3, 1.191e-3, 6.011e-4, 1.132e-4, 2.362e-5, 1.603e-6, 2.215e-7), // Bp
+            doubleArrayOf(2.066e-2, 2.127e-2, 2.137e-2, 1.928e-2, 1.552e-2,
+                    1.108e-2, 7.058e-3, 4.069e-3, 1.590e-3, 5.900e-4, 3.046e-4, 6.142e-5, 1.369e-5, 9.650e-7, 1.244e-7), // Bpp
+            doubleArrayOf(9.405e-2, 9.049e-2, 8.613e-2, 7.301e-2, 5.144e-2,
+                    3.201e-2, 1.775e-2, 8.952e-3, 2.855e-3, 8.429e-4, 3.655e-4, 4.389e-5, 5.252e-6, 9.010e-8, 7.130e-9), // D
+            doubleArrayOf(4.273e-2, 3.862e-2, 3.985e-2, 3.362e-2, 2.486e-2,
+                    1.612e-2, 9.309e-3, 4.856e-3, 1.602e-3, 4.811e-4, 2.096e-4, 2.498e-5, 2.905e-6, 5.077e-8, 6.583e-9), // Dp
+            doubleArrayOf(0.000e-3, 2.042e-3, 7.439e-3, 2.200e-2, 3.164e-2,
+                    3.161e-2, 2.486e-2, 1.664e-2, 7.562e-3, 3.044e-3, 1.608e-3, 3.225e-4, 7.120e-5, 6.290e-6, 1.066e-6))// EF
+    private val sumexcEeV = doubleArrayOf(12.73, 13.20, 14.77, 15.3, 14.93, 15.4, 13.06)
+
     private fun _sumexc(K: Double): Double {
-        val Kvec = doubleArrayOf(0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0)
-        val fvec = arrayOf(
-                doubleArrayOf(2.907e-1, 2.845e-1, 2.665e-1, 2.072e-1, 1.389e-1,
-                        8.238e-2, 4.454e-2, 2.269e-2, 7.789e-3, 2.619e-3, 1.273e-3, 2.218e-4, 4.372e-5, 2.889e-6, 4.247e-7), // B
-                doubleArrayOf(3.492e-1, 3.367e-1, 3.124e-1, 2.351e-1, 1.507e-1,
-                        8.406e-2, 4.214e-2, 1.966e-2, 5.799e-3, 1.632e-3, 6.929e-4, 8.082e-5, 9.574e-6, 1.526e-7, 7.058e-9),  // C
-                doubleArrayOf(6.112e-2, 5.945e-2, 5.830e-2, 5.072e-2, 3.821e-2,
-                        2.579e-2, 1.567e-2, 8.737e-3, 3.305e-3, 1.191e-3, 6.011e-4, 1.132e-4, 2.362e-5, 1.603e-6, 2.215e-7), // Bp
-                doubleArrayOf(2.066e-2, 2.127e-2, 2.137e-2, 1.928e-2, 1.552e-2,
-                        1.108e-2, 7.058e-3, 4.069e-3, 1.590e-3, 5.900e-4, 3.046e-4, 6.142e-5, 1.369e-5, 9.650e-7, 1.244e-7), // Bpp
-                doubleArrayOf(9.405e-2, 9.049e-2, 8.613e-2, 7.301e-2, 5.144e-2,
-                        3.201e-2, 1.775e-2, 8.952e-3, 2.855e-3, 8.429e-4, 3.655e-4, 4.389e-5, 5.252e-6, 9.010e-8, 7.130e-9), // D
-                doubleArrayOf(4.273e-2, 3.862e-2, 3.985e-2, 3.362e-2, 2.486e-2,
-                        1.612e-2, 9.309e-3, 4.856e-3, 1.602e-3, 4.811e-4, 2.096e-4, 2.498e-5, 2.905e-6, 5.077e-8, 6.583e-9), // Dp
-                doubleArrayOf(0.000e-3, 2.042e-3, 7.439e-3, 2.200e-2, 3.164e-2,
-                        3.161e-2, 2.486e-2, 1.664e-2, 7.562e-3, 3.044e-3, 1.608e-3, 3.225e-4, 7.120e-5, 6.290e-6, 1.066e-6))// EF
-        val EeV = doubleArrayOf(12.73, 13.20, 14.77, 15.3, 14.93, 15.4, 13.06)
         var n: Int = 0
         var j: Int
         var jmin = 0
@@ -696,15 +717,15 @@ object Scatter {
 
         //
         while (n <= nmax) {
-            En = EeV[n] / 27.21 // En is the excitation energy in Hartree atomic units
+            En = sumexcEeV[n] / 27.21 // En is the excitation energy in Hartree atomic units
             when {
                 K >= 5.0 -> f[n] = 0.0
-                K in 3.0..4.0 -> f[n] = fvec[n][12] + (K - 3.0) * (fvec[n][13] - fvec[n][12])
-                K in 4.0..5.0 -> f[n] = fvec[n][13] + (K - 4.0) * (fvec[n][14] - fvec[n][13])
+                K in 3.0..4.0 -> f[n] = sumexcfvec[n][12] + (K - 3.0) * (sumexcfvec[n][13] - sumexcfvec[n][12])
+                K in 4.0..5.0 -> f[n] = sumexcfvec[n][13] + (K - 4.0) * (sumexcfvec[n][14] - sumexcfvec[n][13])
                 else -> {
                     j = 0
                     while (j < 14) {
-                        if (K >= Kvec[j] && K <= Kvec[j + 1]) {
+                        if (K >= sumexcKvec[j] && K <= sumexcKvec[j + 1]) {
                             jmin = j - 1
                         }
                         j++
@@ -717,8 +738,8 @@ object Scatter {
                     }
                     j = 0
                     while (j <= 3) {
-                        x4[j] = Kvec[jmin + j]
-                        f4[j] = fvec[n][jmin + j]
+                        x4[j] = sumexcKvec[jmin + j]
+                        f4[j] = sumexcfvec[n][jmin + j]
                         j++
                     }
                     f[n] = lagrange(4, x4, f4, K)
@@ -732,9 +753,10 @@ object Scatter {
 
     //Caching function for precision
     private val sumexcCache = FunctionCache(0.01, this::_sumexc)
+
     private fun sumexc(K: Double): Double = sumexcCache(K)
 
-    fun lagrange(n: Int, xn: DoubleArray, fn: DoubleArray, x: Double): Double {
+    private fun lagrange(n: Int, xn: DoubleArray, fn: DoubleArray, x: Double): Double {
         var i: Int
         var j: Int = 0
         var f: Double = 0.0
@@ -765,15 +787,16 @@ object Scatter {
         return f
     }
 
+    // This function computes the total elastic cross section of
+    // electron scatt. on molecular hydrogen.
+    // See: Liu, Phys. Rev. A35 (1987) 591,
+    //      Trajmar, Phys Reports 97 (1983) 221.
+    // E: incident electron energy in eV
+    // sigmael: cross section in m^2
+    private val sigmaelE = doubleArrayOf(0.0, 1.5, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0, 60.0, 100.0, 150.0, 200.0, 300.0, 400.0)
+    private val sigmaelS = doubleArrayOf(9.6, 13.0, 15.0, 12.0, 10.0, 7.0, 5.6, 3.3, 1.1, 0.9, 0.5, 0.36, 0.23, 0.15)
+
     fun sigmael(E: Double): Double {
-        // This function computes the total elastic cross section of
-        // electron scatt. on molecular hydrogen.
-        // See: Liu, Phys. Rev. A35 (1987) 591,
-        //      Trajmar, Phys Reports 97 (1983) 221.
-        // E: incident electron energy in eV
-        // sigmael: cross section in m^2
-        val e = doubleArrayOf(0.0, 1.5, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0, 60.0, 100.0, 150.0, 200.0, 300.0, 400.0)
-        val s = doubleArrayOf(9.6, 13.0, 15.0, 12.0, 10.0, 7.0, 5.6, 3.3, 1.1, 0.9, 0.5, 0.36, 0.23, 0.15)
         val gam: Double
         var sigma = 0.0
         val T: Double = E / 27.2
@@ -784,8 +807,8 @@ object Scatter {
         } else {
             i = 0
             while (i <= 12) {
-                if (E >= e[i] && E < e[i + 1]) {
-                    sigma = 1e-20 * (s[i] + (s[i + 1] - s[i]) * (E - e[i]) / (e[i + 1] - e[i]))
+                if (E >= sigmaelE[i] && E < sigmaelE[i + 1]) {
+                    sigma = 1e-20 * (sigmaelS[i] + (sigmaelS[i + 1] - sigmaelS[i]) * (E - sigmaelE[i]) / (sigmaelE[i + 1] - sigmaelE[i]))
                 }
                 i++
             }
@@ -798,16 +821,12 @@ object Scatter {
         // electron scatt. on molecular hydrogen.
         // E: incident electron energy in eV,
         // sigmaexc: cross section in m^2
-        val sigma: Double
-        if (E < 9.8) {
-            sigma = 1e-40
-        } else if (E in 9.8..250.0) {
-            sigma = sigmaBC(E) + sigmadiss10(E) + sigmadiss15(E)
-        } else {
-            sigma = 4.0 * Math.PI * a02 * R / E * (0.80 * log(E / R) + 0.28)
+        return when {
+            E < 9.8 -> 1e-40
+            E in 9.8..250.0 -> sigmaBC(E) + sigmadiss10(E) + sigmadiss15(E)
+            else -> 4.0 * Math.PI * a02 * R / E * (0.80 * log(E / R) + 0.28)
         }
         //    sigma=sigmainel(E)-sigmaion(E);
-        return sigma
     }
 
     fun sigmaion(E: Double): Double {
@@ -848,14 +867,15 @@ object Scatter {
         return sigma
     }
 
-    fun sigmaBC(E: Double): Double {
-        // This function computes the sigmaexc electronic excitation
-        // cross section to the B and C states, with energy loss
-        // about 12.5 eV.
-        // E is incident electron energy in eV,
-        // sigmaexc in m^2
-        val aB = doubleArrayOf(-4.2935194e2, 5.1122109e2, -2.8481279e2, 8.8310338e1, -1.6659591e1, 1.9579609, -1.4012824e-1, 5.5911348e-3, -9.5370103e-5)
-        val aC = doubleArrayOf(-8.1942684e2, 9.8705099e2, -5.3095543e2, 1.5917023e2, -2.9121036e1, 3.3321027, -2.3305961e-1, 9.1191781e-3, -1.5298950e-4)
+    // This function computes the sigmaexc electronic excitation
+    // cross section to the B and C states, with energy loss
+    // about 12.5 eV.
+    // E is incident electron energy in eV,
+    // sigmaexc in m^2
+    private val aB = doubleArrayOf(-4.2935194e2, 5.1122109e2, -2.8481279e2, 8.8310338e1, -1.6659591e1, 1.9579609, -1.4012824e-1, 5.5911348e-3, -9.5370103e-5)
+    private val aC = doubleArrayOf(-8.1942684e2, 9.8705099e2, -5.3095543e2, 1.5917023e2, -2.9121036e1, 3.3321027, -2.3305961e-1, 9.1191781e-3, -1.5298950e-4)
+
+    private fun sigmaBC(E: Double): Double {
         var lnsigma: Double = 0.0
         var lnE: Double = log(E)
         var lnEn: Double = 1.0
@@ -898,14 +918,16 @@ object Scatter {
     }
 
     //////////////////////////////////////////////////////////////////
-    fun sigmadiss10(E: Double): Double {
-        // This function computes the sigmadiss10 electronic
-        // dissociative excitation
-        // cross section, with energy loss
-        // about 10 eV.
-        // E is incident electron energy in eV,
-        // sigmadiss10 in m^2
-        val a = doubleArrayOf(-2.297914361e5, 5.303988579e5, -5.316636672e5, 3.022690779e5, -1.066224144e5, 2.389841369e4, -3.324526406e3, 2.624761592e2, -9.006246604)
+
+    // This function computes the sigmadiss10 electronic
+    // dissociative excitation
+    // cross section, with energy loss
+    // about 10 eV.
+    // E is incident electron energy in eV,
+    // sigmadiss10 in m^2
+    private val sigmadiss10a = doubleArrayOf(-2.297914361e5, 5.303988579e5, -5.316636672e5, 3.022690779e5, -1.066224144e5, 2.389841369e4, -3.324526406e3, 2.624761592e2, -9.006246604)
+
+    private fun sigmadiss10(E: Double): Double {
         var lnsigma: Double = 0.0
         val lnE: Double = log(E)
         var lnEn: Double = 1.0
@@ -917,7 +939,7 @@ object Scatter {
         } else {
             n = 0
             while (n <= 8) {
-                lnsigma += a[n] * lnEn
+                lnsigma += sigmadiss10a[n] * lnEn
                 lnEn *= lnE
                 n++
             }
@@ -927,14 +949,15 @@ object Scatter {
     }
 
     //////////////////////////////////////////////////////////////////
-    fun sigmadiss15(E: Double): Double {
-        // This function computes the sigmadiss15 electronic
-        // dissociative excitation
-        // cross section, with energy loss
-        // about 15 eV.
-        // E is incident electron energy in eV,
-        // sigmadiss15 in m^2
-        val a = doubleArrayOf(-1.157041752e3, 1.501936271e3, -8.6119387e2, 2.754926257e2, -5.380465012e1, 6.573972423, -4.912318139e-1, 2.054926773e-2, -3.689035889e-4)
+    // This function computes the sigmadiss15 electronic
+    // dissociative excitation
+    // cross section, with energy loss
+    // about 15 eV.
+    // E is incident electron energy in eV,
+    // sigmadiss15 in m^2
+    private val sigmadiss15a = doubleArrayOf(-1.157041752e3, 1.501936271e3, -8.6119387e2, 2.754926257e2, -5.380465012e1, 6.573972423, -4.912318139e-1, 2.054926773e-2, -3.689035889e-4)
+
+    private fun sigmadiss15(E: Double): Double {
         var lnsigma: Double = 0.0
         val lnE: Double = log(E)
         var lnEn: Double
@@ -947,7 +970,7 @@ object Scatter {
         } else {
             n = 0
             while (n <= 8) {
-                lnsigma += a[n] * lnEn
+                lnsigma += sigmadiss15a[n] * lnEn
                 lnEn *= lnE
                 n++
             }
