@@ -1,7 +1,5 @@
 package inr.numass.trapping
 
-import org.apache.commons.rng.simple.RandomSource
-import java.io.File
 import java.time.Duration
 import java.time.Instant
 
@@ -21,12 +19,11 @@ fun main(args: Array<String>) {
         SimulationManager().apply {
             comment = "Out of the box cross-sections"
             fileName = "trap[$e]"
-            generator = RandomSource.create(RandomSource.MWC_256)
             setFields(0.6, 3.7, 7.2)
             gasDensity = 1e19
             initialE = e
             range = 4000.0
-        }.simulateAll(1e7)
+        }.simulateAll(1_000_000)
     }
 
     val finishTime = Instant.now()

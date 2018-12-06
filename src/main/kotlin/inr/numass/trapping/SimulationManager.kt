@@ -1,14 +1,17 @@
 package inr.numass.trapping
 
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator
-import org.apache.commons.math3.random.SynchronizedRandomGenerator
+import org.apache.commons.math3.random.JDKRandomGenerator
 import org.apache.commons.rng.UniformRandomProvider
 import org.apache.commons.rng.simple.RandomSource
 import java.io.File
 import java.io.PrintStream
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
-import java.util.stream.Stream
+import java.util.stream.LongStream
+
+private val seedGenerator = JDKRandomGenerator()
+
 
 /**
  * Created by darksnake on 04-Jun-16.
@@ -20,7 +23,10 @@ class SimulationManager() {
 
     var comment = ""
 
-    var generator: UniformRandomProvider = RandomSource.create(RandomSource.SPLIT_MIX_64)
+    /**
+     * A supplier for random generator. Each track has its own generator
+     */
+    var generatorFactory: (Long) -> UniformRandomProvider = { RandomSource.create(RandomSource.MT_64, seedGenerator.nextInt()) }
     var reportFilter: (Simulator.SimulationResult) -> Boolean = { it.state == Simulator.EndState.ACCEPTED }
 
     var initialE = 18000.0
@@ -85,8 +91,8 @@ class SimulationManager() {
             outputDirectory.mkdirs()
         }
 
-        val generator = SynchronizedRandomGenerator(RandomGeneratorBridge(generator))
-        val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField, generator)
+
+        val simulator = Simulator(eLow, thetaTransport, thetaPinch, gasDensity, bSource, magneticField)
 
         val counter = Counter()
 
@@ -100,18 +106,19 @@ class SimulationManager() {
 
 
         val outputPath = outputDirectory.toPath().resolve("$fileName.out")
+
         PrintStream(Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)).use { output ->
             output.println("# " + header.replace("\n", "\n# "))//adding comment symbols
 
             System.out.printf("%nStarting simulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
-            output.printf("%s\t%s\t%s\t%s\t%s\t%s%n", "E", "theta", "theta_start", "colNum", "L", "state")
-            Stream
-                    .generate {
+            output.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s%n", "id", "E", "theta", "theta_start", "colNum", "L", "state")
+            LongStream.rangeClosed(1, num.toLong()).parallel()
+                    .mapToObj { id ->
+                        val generator = RandomGeneratorBridge(generatorFactory(id))
                         val theta = Math.acos(1 - 2 * generator.nextDouble())// from 0 to Pi
                         val z = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH
-                        simulator.simulate(initialE, theta, z).also { counter.count(it) }
+                        simulator.simulate(id, generator, initialE, theta, z).also { counter.count(it) }
                     }
-                    .limit(num.toLong()).parallel()
                     .filter(reportFilter)
                     .forEach { res ->
                         printOne(output, res)
@@ -148,7 +155,7 @@ class SimulationManager() {
     }
 
     private fun printOne(out: PrintStream, res: Simulator.SimulationResult) {
-        out.printf("%g\t%g\t%g\t%d\t%g\t%s%n", res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.l, res.state.toString())
+        out.printf("%d\t%g\t%g\t%g\t%d\t%g\t%s%n", res.id, res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.l, res.state.toString())
         out.flush()
     }
 

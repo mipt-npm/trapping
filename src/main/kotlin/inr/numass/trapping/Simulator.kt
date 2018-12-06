@@ -23,8 +23,8 @@ class Simulator(
         val thetaPinch: Double,
         val gasDensity: Double,// m^-3
         val bSource: Double,
-        val magneticField: ((Double) -> Double)?,
-        val generator: RandomGenerator) {
+        val magneticField: ((Double) -> Double)?
+) {
 
     enum class EndState {
 
@@ -55,20 +55,12 @@ class Simulator(
         //проверяем нормировку
         assert(Precision.equals(sigmaEl + sigmaExc + sigmaIon, 1.0, 1e-2))
 
-        val alpha = generator.nextDouble()
+        val alpha = pos.generator.nextDouble()
 
-        val delta: Pair<Double, Double>
-        if (alpha > sigmaEl) {
-            if (alpha > sigmaEl + sigmaExc) {
-                //ionization case
-                delta = Scatter.randomion(pos.e, generator)
-            } else {
-                //excitation case
-                delta = Scatter.randomexc(pos.e, generator)
-            }
-        } else {
-            // elastic
-            delta = Scatter.randomel(pos.e, generator)
+        val delta: Pair<Double, Double> = when {
+            alpha < sigmaEl -> Scatter.randomel(pos.e, pos.generator)// elastic
+            alpha > sigmaEl + sigmaExc -> Scatter.randomion(pos.e, pos.generator)//ionization case
+            else -> Scatter.randomexc(pos.e, pos.generator)//excitation case
         }
 
         //Обновляем значени угла и энергии независимо ни от чего
@@ -85,7 +77,7 @@ class Simulator(
      * @param e
      * @return
      */
-    private fun freePath(e: Double): Double {
+    private fun freePath(generator: RandomGenerator, e: Double): Double {
         //FIXME redundant cross-section calculation
         //All cross-sections are in m^2
         return ExponentialDistribution(generator, 1.0 / Scatter.sigmaTotal(e) / gasDensity).sample()
@@ -196,15 +188,15 @@ class Simulator(
      * Симулируем один пробег электрона от начального значения и до вылетания из
      * иточника или до того момента, как энергия становится меньше eLow.
      */
-    fun simulate(initEnergy: Double, initTheta: Double, initZ: Double): SimulationResult {
+    fun simulate(id: Long, generator: RandomGenerator, initEnergy: Double, initTheta: Double, initZ: Double): SimulationResult {
         assert(initEnergy > 0)
         assert(initTheta > 0 && initTheta < Math.PI)
         assert(abs(initZ) <= SOURCE_LENGTH / 2.0)
 
-        val pos = State(initEnergy, initTheta, initZ)
+        val pos = State(generator, initEnergy, initTheta, initZ)
 
         while (!pos.isFinished) {
-            val dl = freePath(pos.e) // path to next scattering
+            val dl = freePath(generator, pos.e) // path to next scattering
             // propagate to next scattering position
             propagate(pos, dl)
 
@@ -220,7 +212,7 @@ class Simulator(
             }
         }
 
-        return SimulationResult(pos.endState, pos.e, pos.theta, initTheta, pos.colNum, pos.l)
+        return SimulationResult(id, pos.endState, pos.e, pos.theta, initTheta, pos.colNum, pos.l)
     }
 
     fun resetDebugCounters() {
@@ -236,7 +228,7 @@ class Simulator(
         }
     }
 
-    class SimulationResult(var state: EndState, var E: Double, var theta: Double, var initTheta: Double, var collisionNumber: Int, var l: Double)
+    data class SimulationResult(val id: Long, val state: EndState, val E: Double, val theta: Double, val initTheta: Double, val collisionNumber: Int, val l: Double)
 
     /**
      * Current electron position in simulation. Not thread safe!
@@ -245,7 +237,7 @@ class Simulator(
      * @property theta Current theta recalculated to the field in the center of the source
      * @property z current z. Zero is the center of the source
      */
-    private inner class State(internal var e: Double, internal var theta: Double, internal var z: Double) {
+    private inner class State(val generator: RandomGenerator, internal var e: Double, internal var theta: Double, internal var z: Double) {
         /**
          * Current total path
          */
@@ -349,7 +341,7 @@ class Simulator(
         /**
          * Reverse electron direction
          */
-        internal fun flip() {
+        fun flip() {
             if (theta < 0 || theta > PI) {
                 throw Error()
             }
@@ -361,7 +353,7 @@ class Simulator(
          *
          * @return
          */
-        internal fun field(): Double {
+        fun field(): Double {
             return this@Simulator.field(z)
         }
 
@@ -370,7 +362,7 @@ class Simulator(
          *
          * @return
          */
-        internal fun realTheta(): Double {
+        fun realTheta(): Double {
             if (magneticField == null) {
                 return theta
             } else {
@@ -391,7 +383,7 @@ class Simulator(
          * @param dTheta
          * @return resulting angle
          */
-        internal fun addTheta(dTheta: Double): Double {
+        fun addTheta(dTheta: Double): Double {
             //Генерируем случайный фи
             val phi = generator.nextDouble() * 2.0 * Math.PI
 
@@ -406,7 +398,7 @@ class Simulator(
 
             val result = rot.applyTo(init.cartesian)
 
-            val newtheta = acos(result.z)
+            val newTheta = acos(result.z)
 
             //            //следим чтобы угол был от 0 до Pi
             //            if (newtheta < 0) {
@@ -418,10 +410,10 @@ class Simulator(
 
             //change back to virtual angles
             if (magneticField == null) {
-                theta = newtheta
+                theta = newTheta
             } else {
-                theta = asin(sin(newtheta) * sqrt(bSource / field()))
-                if (newtheta > PI / 2) {
+                theta = asin(sin(newTheta) * sqrt(bSource / field()))
+                if (newTheta > PI / 2) {
                     theta = PI - theta
                 }
             }
@@ -435,8 +427,8 @@ class Simulator(
 
     companion object {
 
-        val SOURCE_LENGTH = 3.0
-        private val DELTA_L = 0.1 //step for propagate calculation
+        const val SOURCE_LENGTH = 3.0
+        private const val DELTA_L = 0.1 //step for propagate calculation
     }
 
 
