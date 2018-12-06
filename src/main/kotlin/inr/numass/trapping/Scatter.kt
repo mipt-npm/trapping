@@ -133,8 +133,6 @@ object Scatter {
         //   *theta: change of polar angle in degrees
 
 
-        //val sum = DoubleArray(1001)
-        var T: Double = 20000.0 / 27.2
         var c = 0.0
         var K: Double
         var y: Double
@@ -151,7 +149,7 @@ object Scatter {
         //
         //  Scattering angle *theta generation:
         //
-        T = E / 27.2
+        val T = E / 27.2
         val theta: Double
         if (E >= 100.0) {
             val xmin = Ecen * Ecen / (2.0 * T)
