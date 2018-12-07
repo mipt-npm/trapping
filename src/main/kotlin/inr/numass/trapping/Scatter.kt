@@ -1,29 +1,22 @@
-/*
- * written by Sebastian Voecking <seb.voeck@uni-muenster.de>
- *
- * See scatter.h for details
- *
- * Included in this file are function from Ferenc Glueck for calculation of
- * cross sections.
- */
 package inr.numass.trapping
 
 import org.apache.commons.math3.random.RandomGenerator
 import org.apache.commons.math3.util.FastMath.*
 import org.apache.commons.math3.util.Pair
 
-
-//var generator: RandomGenerator = JDKRandomGenerator()
-
-var debug = false
-
-var counter = MultiCounter("Accept-reject calls")
-
 /**
- * Using top level object instead of class
+ *
+ * The initial code was written by Ferenc Glueck and then rewritten by [Sebastian Voecking](mailto:seb.voeck@uni-muenster.de)
+ *     into C++. To reference the code, don't forget to also include [kasiopea](http://stacks.iop.org/1367-2630/19/i=5/a=053012).
  * @author Darksnake
  */
 object Scatter {
+
+    var debug = false
+
+    val counter = MultiCounter("Accept-reject calls")
+
+
     private val a02 = 28e-22 // Bohr radius squared
     private val clight = 137.0 // velocity of light in atomic units
     private val emass = 18780.0 // Electron mass in atomic units
