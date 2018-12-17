@@ -1,3 +1,4 @@
+
 \.orig$
 \.orig\..*$
 \.chg\..*$
@@ -5,8 +6,8 @@
 \.conflict\~$
 .gradle/
 output/
-notebooks/.ipynb_checkpoints
-.ipynb_checkpoints
+.ipynb_checkpoints/
+notebooks/images/
 build/
 .idea/*
 !gradle-wrapper.jar
