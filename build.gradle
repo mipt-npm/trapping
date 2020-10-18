@@ -1,15 +1,14 @@
 plugins {
-    id "org.jetbrains.kotlin.jvm" version "1.3.10"
-    id "java"
+    id "org.jetbrains.kotlin.jvm" version "1.4.10"
     id "application"
 }
 
-group = 'inr.numass'
-version = 'dev'
+group = 'ru.inr.mass'
+version = '1.0.0'
 
 description = "Numass trapping simulation"
 
-mainClassName = "inr.numass.trapping.TrappingKt"
+mainClassName = "ru.inr.mass.trapping.TrappingKt"
 
 repositories {
     mavenCentral()
