@@ -8,7 +8,7 @@ import org.apache.commons.math3.util.Pair
  *
  * The initial code was written by Ferenc Glueck and then rewritten by [Sebastian Voecking](mailto:seb.voeck@uni-muenster.de)
  *     into C++. To reference the code, don't forget to also include [kasiopea](http://stacks.iop.org/1367-2630/19/i=5/a=053012).
- * @author Darksnake
+ * @author Alexander Nozik
  */
 object Scatter {
 

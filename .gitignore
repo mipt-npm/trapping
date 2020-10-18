@@ -2,4 +2,5 @@
 /.idea/
 /build/
 /output/
+/notebooks/.ipynb_checkpoints
 !gradle-wrapper.jar

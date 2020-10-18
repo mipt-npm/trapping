@@ -15,7 +15,7 @@ import ru.inr.mass.trapping.Scatter.counter
 import ru.inr.mass.trapping.Scatter.debug
 
 /**
- * @author Darksnake
+ * @author Alexander Nozik
  * @property magneticField Longitudal magnetic field distribution
  * @property gasDensity gas density in 1/m^3
  */
@@ -420,7 +420,7 @@ class Simulator(
                 }
             }
 
-            assert(!java.lang.Double.isNaN(theta))
+            require(!theta.isNaN())
 
             return theta
         }
