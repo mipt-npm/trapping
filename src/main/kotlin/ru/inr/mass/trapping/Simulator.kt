@@ -380,7 +380,7 @@ class Simulator(
 
 
         /**
-         * Сложение вектора с учетом случайно распределения по фи
+         * Vector addition, taking into account random phi distribution
          *
          * @param dTheta
          * @return resulting angle

@@ -19,7 +19,7 @@ fun main() {
         SimulationManager().apply {
             comment = "Out of the box cross-sections"
             fileName = "trap[$e]"
-            setFields(0.6, 3.7, 7.2)
+            setFields(0.6, 3.6, 7.2)
             gasDensity = 1e19
             initialE = e
             range = 4000.0
