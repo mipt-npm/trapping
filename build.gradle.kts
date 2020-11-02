@@ -1,12 +1,14 @@
 plugins {
     kotlin("jvm") version "1.4.10"
     application
+    id("com.github.johnrengelman.shadow") version "6.1.0"
 }
 
 group = "ru.inr.mass"
 version = "1.1.0"
 
 description = "Numass trapping simulation"
+
 application {
     mainClassName = "ru.inr.mass.trapping.MainKt"
 }
