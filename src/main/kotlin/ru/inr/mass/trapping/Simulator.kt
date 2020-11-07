@@ -29,11 +29,10 @@ class Simulator(
 ) {
 
     enum class EndState {
-
-        ACCEPTED, //трэппинговый электрон попал в аксептанс
-        REJECTED, //трэппинговый электрон вылетел через заднюю пробку
-        LOWENERGY, //потерял слишком много энергии
-        PASS, //электрон никогда не запирался и прошел напрямую, нужно для нормировки
+        ACCEPTED, // escaped to the spectrometer
+        REJECTED, // escaped to the rear side
+        LOWENERGY, // energy below lower border
+        PASS, // Electron never trapped
         NONE
     }
 
@@ -45,7 +44,7 @@ class Simulator(
      * @return
      */
     private fun scatter(pos: State): State {
-        //Вычисляем сечения и нормируем их на полное сечение
+        //Computing cross-sections and normalizing them
         var sigmaIon = Scatter.sigmaion(pos.e)
         var sigmaEl = Scatter.sigmael(pos.e)
         var sigmaExc = Scatter.sigmaexc(pos.e)
@@ -54,20 +53,19 @@ class Simulator(
         sigmaEl /= sigmaTotal
         sigmaExc /= sigmaTotal
 
-        //проверяем нормировку
+        //Checking norming
         assert(Precision.equals(sigmaEl + sigmaExc + sigmaIon, 1.0, 1e-2))
 
         val alpha = pos.generator.nextDouble()
 
         val delta: Pair<Double, Double> = when {
-            alpha < sigmaEl -> Scatter.randomel(pos.e, pos.generator)// elastic
-            alpha > sigmaEl + sigmaExc -> Scatter.randomion(pos.e, pos.generator)//ionization case
-            else -> Scatter.randomexc(pos.e, pos.generator)//excitation case
+            alpha < sigmaEl -> Scatter.randomel(pos.e, pos.generator) // elastic
+            alpha > sigmaEl + sigmaExc -> Scatter.randomion(pos.e, pos.generator) //ionization case
+            else -> Scatter.randomexc(pos.e, pos.generator) //excitation case
         }
 
-        //Обновляем значени угла и энергии независимо ни от чего
+        // updating energy and angle
         pos.substractE(delta.first)
-        //Изменение угла
         pos.addTheta(delta.second / 180 * Math.PI)
 
         return pos
@@ -389,13 +387,13 @@ class Simulator(
             //Генерируем случайный фи
             val phi = generator.nextDouble() * 2.0 * Math.PI
 
-            //change to real angles
+            // change to real angles
             val realTheta = realTheta()
-            //Создаем начальный вектор в сферических координатах
+            // Initial vector in spherical coordinates
             val init = SphericalCoordinates(1.0, 0.0, realTheta + dTheta)
-            // Задаем вращение относительно оси, перпендикулярной исходному вектору
+            // Rotating on an axis perpendicular to the initial vector
             val rotate = SphericalCoordinates(1.0, 0.0, realTheta)
-            // поворачиваем исходный вектор на dTheta
+            // Rotation the initial vector
             val rot = Rotation(rotate.cartesian, phi, null)
 
             val result = rot.applyTo(init.cartesian)

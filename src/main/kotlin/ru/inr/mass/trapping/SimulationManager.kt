@@ -26,7 +26,8 @@ class SimulationManager() {
     /**
      * A supplier for random generator. Each track has its own generator
      */
-    var generatorFactory: (Long) -> UniformRandomProvider = { RandomSource.create(RandomSource.MT_64, seedGenerator.nextInt()) }
+    var generatorFactory: (Long) -> UniformRandomProvider =
+        { RandomSource.create(RandomSource.MT_64, seedGenerator.nextInt()) }
     var reportFilter: (Simulator.SimulationResult) -> Boolean = { it.state == Simulator.EndState.ACCEPTED }
 
     var initialE = 18000.0
@@ -107,26 +108,35 @@ class SimulationManager() {
 
         val outputPath = outputDirectory.toPath().resolve("$fileName.out")
 
-        PrintStream(Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)).use { output ->
+        PrintStream(
+            Files.newOutputStream(
+                outputPath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
+            )
+        ).use { output ->
             output.println("# " + header.replace("\n", "\n# "))//adding comment symbols
 
-            System.out.printf("%nStarting simulation with initial energy %g and %d electrons.%n%n", initialE, num.toLong())
+            System.out.printf("%nStarting simulation with initial energy %g and %d electrons.%n%n",
+                initialE,
+                num.toLong())
             output.printf("%s\t%s\t%s\t%s\t%s\t%s\t%s%n", "id", "E", "theta", "theta_start", "colNum", "L", "state")
-            LongStream.rangeClosed(1, num.toLong()).parallel()
-                    .mapToObj { id ->
-                        val generator = RandomGeneratorBridge(generatorFactory(id))
-                        val theta = Math.acos(1 - 2 * generator.nextDouble())// from 0 to Pi
-                        val z = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH
-                        simulator.simulate(id, generator, initialE, theta, z).also { counter.count(it) }
-                    }
-                    .filter(reportFilter)
-                    .forEach { res ->
-                        printOne(output, res)
-                    }
+            LongStream.rangeClosed(1, num.toLong()).parallel().mapToObj { id ->
+                val generator = RandomGeneratorBridge(generatorFactory(id))
+                val theta = Math.acos(1 - 2 * generator.nextDouble())// from 0 to Pi
+                val z = (generator.nextDouble() - 0.5) * Simulator.SOURCE_LENGTH
+                simulator.simulate(id, generator, initialE, theta, z).also { counter.count(it) }
+            }.filter(reportFilter).forEach { res ->
+                printOne(output, res)
+            }
         }
 
         val statisticsPath = outputDirectory.toPath().resolve("$fileName.stat")
-        PrintStream(Files.newOutputStream(statisticsPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)).use {
+        PrintStream(Files.newOutputStream(statisticsPath,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING,
+            StandardOpenOption.WRITE)).use {
             it.println(header + "\n")
             printStatistics(it, simulator, counter)
 
@@ -155,7 +165,14 @@ class SimulationManager() {
     }
 
     private fun printOne(out: PrintStream, res: Simulator.SimulationResult) {
-        out.printf("%d\t%g\t%g\t%g\t%d\t%g\t%s%n", res.id, res.E, res.theta * 180 / Math.PI, res.initTheta * 180 / Math.PI, res.collisionNumber, res.l, res.state.toString())
+        out.printf("%d\t%g\t%g\t%g\t%d\t%g\t%s%n",
+            res.id,
+            res.E,
+            res.theta * 180 / Math.PI,
+            res.initTheta * 180 / Math.PI,
+            res.collisionNumber,
+            res.l,
+            res.state.toString())
         out.flush()
     }
 

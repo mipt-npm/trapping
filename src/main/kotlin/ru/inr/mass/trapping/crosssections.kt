@@ -18,6 +18,9 @@ infix fun ClosedFloatingPointRange<Double>.step(step: Double): Sequence<Double> 
 }
 
 
+/**
+ * Extract cross-sections from the code
+ */
 fun main() {
 
     val energies = ((1.0..20.0) step 0.2).toList() // energy in keV
