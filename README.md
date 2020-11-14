@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/261755622.svg)](https://zenodo.org/badge/latestdoi/261755622)
+
 ## Trapping simulation
 
 The code for trapping simulation in the [Troitsk nu-mass experiment](http://mass.inr.ru/unu/index_eng.html).
